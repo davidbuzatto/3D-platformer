@@ -21,8 +21,10 @@
 
 static void updateCamera( GameWorld *gw );
 
-static float cameraAngle    = 135.0f;
+//static float cameraAngle    = 135.0f;
+static float cameraAngle    = 90.0f;
 static float cameraDistance = 5.0f;
+static float cameraSpeed      = 10.0f;
 
 /**
  * @brief Creates a dinamically allocated GameWorld struct instance.
@@ -31,11 +33,34 @@ GameWorld *createGameWorld( void ) {
 
     GameWorld *gw = (GameWorld*) malloc( sizeof( GameWorld ) );
 
-    initEntity( &gw->entity );
+    int rows = 5;
+    int cols = 5;
+    gw->entityCount = rows * cols;
+
+    float entitySpacing = 1.0f;
+    float entitySize = 1.0f;
+    float startPosX = - ( ( cols * entitySize + ( cols - 1 ) * entitySpacing ) / 2.0f - entitySize / 2.0f );
+    float startPosZ = - ( ( rows * entitySize + ( rows - 1 ) * entitySpacing ) / 2.0f - entitySize / 2.0f );
+    
+    gw->entities = (Entity*) malloc( sizeof( Entity ) * gw->entityCount );
+
+    for ( int i = 0; i < rows; i++ ) {
+        for ( int j = 0; j < cols; j++ ) {
+            int p = i * cols + j;
+            initEntity( 
+                &gw->entities[p], 
+                (Vector3) { 
+                    startPosX + j * (entitySize + entitySpacing), 
+                    0, 
+                    startPosZ + i * (entitySize + entitySpacing)
+                }
+            );
+        }
+    }
 
     gw->camera = (Camera3D) {
         .fovy = 60.0f,
-        .position = (Vector3) { 0, 2, cameraDistance },
+        .position = (Vector3) { 0.0f, 5.0f, cameraDistance },
         .projection = CAMERA_PERSPECTIVE,
         .target = (Vector3) { 0 },
         .up = (Vector3) { 0, 1, 0 }
@@ -49,7 +74,12 @@ GameWorld *createGameWorld( void ) {
  * @brief Destroys a GameWindow object and its dependecies.
  */
 void destroyGameWorld( GameWorld *gw ) {
-    free( gw );
+    if ( gw != NULL ) {
+        if ( gw->entities != NULL ) {
+            free( gw->entities );
+        }
+        free( gw );
+    }
 }
 
 /**
@@ -57,9 +87,14 @@ void destroyGameWorld( GameWorld *gw ) {
  */
 void updateGameWorld( GameWorld *gw, float delta ) {
 
-    gw->entity.update( &gw->entity, delta );
-
     updateCamera( gw );
+
+    for ( int i = 0; i < gw->entityCount; i++ ) {
+        gw->entities[i].update( &gw->entities[i], &gw->camera, delta );
+    }
+
+    float m = -GetMouseWheelMove();
+    cameraDistance += cameraSpeed * m * delta;
 
 }
 
@@ -70,14 +105,15 @@ void drawGameWorld( GameWorld *gw ) {
 
     BeginDrawing();
     ClearBackground( WHITE );
-
     BeginMode3D( gw->camera );
 
-    gw->entity.draw( &gw->entity );
+    for ( int i = 0; i < gw->entityCount; i++ ) {
+        gw->entities[i].draw( &gw->entities[i] );
+    }
+
     DrawGrid( 100, 1 );
 
     EndMode3D();
-
     EndDrawing();
 
 }
@@ -85,7 +121,6 @@ void drawGameWorld( GameWorld *gw ) {
 static void updateCamera( GameWorld *gw ) {
 
     Camera3D *c = &gw->camera;
-    Entity *e = &gw->entity;
 
     if ( IsKeyDown( KEY_DELETE ) ) {
         cameraAngle += 1;
@@ -96,11 +131,11 @@ static void updateCamera( GameWorld *gw ) {
     }
 
     c->position = (Vector3) {
-        .x = e->pos.x + cameraDistance * cosf( DEG2RAD * cameraAngle ),
-        .y = 2.0f,
-        .z = e->pos.z + cameraDistance * sinf( DEG2RAD * cameraAngle )
+        .x = cameraDistance * cosf( DEG2RAD * cameraAngle ),
+        .y = 5.0f,
+        .z = cameraDistance * sinf( DEG2RAD * cameraAngle )
     };
 
-    c->target = e->pos;
+    //c->target = e->pos;
 
 }

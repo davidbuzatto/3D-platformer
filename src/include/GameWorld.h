@@ -10,8 +10,12 @@
 #include "Entity.h"
 
 typedef struct GameWorld {
-    Entity entity;
+
+    Entity *entities;
+    int entityCount;
+
     Camera3D camera;
+    
 } GameWorld;
 
 /**

@@ -18,9 +18,9 @@ struct Entity {
     MoveAnchor moveAnchor;
     Vector3 moveAnchorOffset;
 
-    void (*update)( Entity *e, float delta );
+    void (*update)( Entity *e, Camera3D *camera, float delta );
     void (*draw)( Entity *e );
 
 };
 
-void initEntity( Entity *e );
+void initEntity( Entity *e, Vector3 pos );

@@ -1,0 +1,6 @@
+Refactor code (MoveAnchor and MoveAnchorPanel);
+
+Make entities by selecting them;
+    Selection needs to the get closest one;
+
+Rotation -> needs to convert to a Model.
