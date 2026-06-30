@@ -10,9 +10,22 @@
 #include "raylib/raylib.h"
 
 typedef struct ResourceManager {
-    Texture2D textureExample;
+
+    Model blockGrassModel;
+    Model blockGrassCornerModel;
+    Model blockGrassCurveModel;
+    Model blockGrassEdgeModel;
+    Model blockGrassLongModel;
+    Model blockGrassLargeModel;
+    Model blockGrassLargeTallModel;
+
+    //
+    //block-grass-overhang-corner
+
+    /*Texture2D textureExample;
     Sound soundExample;
-    Music musicExample;
+    Music musicExample;*/
+
 } ResourceManager;
 
 // Read-only outside this module. Use rm->field to access resources.

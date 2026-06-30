@@ -8,5 +8,5 @@ typedef struct {
     Vector3 pos;
     Vector3 dim;
     Color color;
-    bool mouseHover;
+    bool selected;
 } MoveAnchorPlane;

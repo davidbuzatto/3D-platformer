@@ -7,6 +7,7 @@
  */
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <math.h>
 
 #include "raylib/raylib.h"
@@ -17,14 +18,20 @@
 
 #include "Entity.h"
 #include "GameWorld.h"
+#include "MoveAnchor.h"
 #include "ResourceManager.h"
 
-static void updateCamera( GameWorld *gw );
+static void updateCamera( GameWorld *gw, float delta );
+static void drawSelectedEntityDebugData( Entity *e );
 
-//static float cameraAngle    = 135.0f;
-static float cameraAngle    = 90.0f;
-static float cameraDistance = 5.0f;
+static bool drawDebugInfo = true;
+
+static float cameraAngle      = 90.0f;
+static float cameraDistance   = 5.0f;
 static float cameraSpeed      = 10.0f;
+static float cameraAngleSpeed = 60.0f;
+
+static Entity *selectedEntity = NULL;
 
 /**
  * @brief Creates a dinamically allocated GameWorld struct instance.
@@ -33,29 +40,63 @@ GameWorld *createGameWorld( void ) {
 
     GameWorld *gw = (GameWorld*) malloc( sizeof( GameWorld ) );
 
-    int rows = 5;
+    int rows = 7;
     int cols = 5;
     gw->entityCount = rows * cols;
-
-    float entitySpacing = 1.0f;
-    float entitySize = 1.0f;
-    float startPosX = - ( ( cols * entitySize + ( cols - 1 ) * entitySpacing ) / 2.0f - entitySize / 2.0f );
-    float startPosZ = - ( ( rows * entitySize + ( rows - 1 ) * entitySpacing ) / 2.0f - entitySize / 2.0f );
-    
     gw->entities = (Entity*) malloc( sizeof( Entity ) * gw->entityCount );
 
+    float entitySpacing = 0.0f;
+
+    Model models[7] = {
+        rm->blockGrassLargeTallModel,
+        rm->blockGrassLargeModel,
+        rm->blockGrassLongModel,
+        rm->blockGrassCurveModel,
+        rm->blockGrassModel,
+        rm->blockGrassCornerModel,
+        rm->blockGrassEdgeModel,
+    };
+
+    float startPosZ = 0;
+
     for ( int i = 0; i < rows; i++ ) {
+
+        Model baseModel = models[i];
+        BoundingBox bb = GetModelBoundingBox( baseModel );
+        float entitySizeZ = bb.max.z - bb.min.z;
+
+        startPosZ -= entitySizeZ + entitySpacing;
+
+    }
+
+    for ( int i = 0; i < rows; i++ ) {
+
+        Model baseModel = models[i];
+        BoundingBox bb = GetModelBoundingBox( baseModel );
+
+        float entitySizeX = bb.max.x - bb.min.x;
+        float entitySizeZ = bb.max.z - bb.min.z;
+
+        float startPosX = - ( ( cols * entitySizeX + ( cols - 1 ) * entitySpacing ) / 2.0f - entitySizeX / 2.0f );
+
         for ( int j = 0; j < cols; j++ ) {
+
             int p = i * cols + j;
+
             initEntity( 
                 &gw->entities[p], 
                 (Vector3) { 
-                    startPosX + j * (entitySize + entitySpacing), 
+                    startPosX + j * (entitySizeX + entitySpacing), 
                     0, 
-                    startPosZ + i * (entitySize + entitySpacing)
-                }
+                    startPosZ + i * (entitySizeZ + entitySpacing)
+                },
+                baseModel
             );
+
         }
+        
+        startPosZ += entitySizeZ;
+
     }
 
     gw->camera = (Camera3D) {
@@ -87,14 +128,109 @@ void destroyGameWorld( GameWorld *gw ) {
  */
 void updateGameWorld( GameWorld *gw, float delta ) {
 
-    updateCamera( gw );
+    updateCamera( gw, delta );
 
     for ( int i = 0; i < gw->entityCount; i++ ) {
         gw->entities[i].update( &gw->entities[i], &gw->camera, delta );
     }
 
-    float m = -GetMouseWheelMove();
-    cameraDistance += cameraSpeed * m * delta;
+    if ( selectedEntity == NULL ) {
+
+        for ( int i = 0; i < gw->entityCount; i++ ) {
+
+            Entity *e = &gw->entities[i];
+            bool select = false;
+
+            e->moveAnchor.xymp.selected = false;
+            e->moveAnchor.xzmp.selected = false;
+            e->moveAnchor.yzmp.selected = false;
+
+            switch ( checkCollisionMouseMoveAnchor( &e->moveAnchor, &gw->camera ) ) {
+                case MOVE_ANCHOR_COLLISION_TYPE_NONE:
+                    select = false;
+                    break;
+                case MOVE_ANCHOR_COLLISION_TYPE_XY:
+                    e->moveAnchor.xymp.selected = true;
+                    select = true;
+                    break;
+                case MOVE_ANCHOR_COLLISION_TYPE_XZ:
+                    e->moveAnchor.xzmp.selected = true;
+                    select = true;
+                    break;
+                case MOVE_ANCHOR_COLLISION_TYPE_YZ:
+                    e->moveAnchor.yzmp.selected = true;
+                    select = true;
+                    break;
+            }
+
+            if ( select && IsMouseButtonPressed( MOUSE_BUTTON_LEFT ) ) {
+                selectedEntity = e;
+                break;
+            }
+
+        }
+
+    }
+
+    if ( IsMouseButtonReleased( MOUSE_BUTTON_LEFT ) ) {
+        if ( selectedEntity != NULL ) {
+            selectedEntity->moveAnchor.xymp.selected = false;
+            selectedEntity->moveAnchor.xzmp.selected = false;
+            selectedEntity->moveAnchor.yzmp.selected = false;
+        }
+        selectedEntity = NULL;
+    }
+
+    if ( selectedEntity != NULL ) {
+
+        Entity *e = selectedEntity;
+
+        const float moveAmount = 0.1f;
+        float xAmount = 0.0f;
+        float yAmount = 0.0f;
+        float zAmount = 0.0f;
+
+        if ( e->moveAnchor.xymp.selected ) {
+            int h = ( IsKeyPressed( KEY_LEFT ) ? -1 : 0 ) + ( IsKeyPressed( KEY_RIGHT ) ?  1 : 0 );
+            int v = ( IsKeyPressed( KEY_UP )   ?  1 : 0 ) + ( IsKeyPressed( KEY_DOWN )  ? -1 : 0 );
+            xAmount = moveAmount * h;
+            yAmount = moveAmount * v;
+            //e->vel.x = e->baseSpeed * h;
+            //e->vel.y = e->baseSpeed * v;
+        } else if ( e->moveAnchor.xzmp.selected ) {
+            int h = ( IsKeyPressed( KEY_LEFT ) ? -1 : 0 ) + ( IsKeyPressed( KEY_RIGHT ) ? 1 : 0 );
+            int f = ( IsKeyPressed( KEY_UP )   ? -1 : 0 ) + ( IsKeyPressed( KEY_DOWN )  ? 1 : 0 );
+            xAmount = moveAmount * h;
+            zAmount = moveAmount * f;
+            //e->vel.x = e->baseSpeed * h;
+            //e->vel.z = e->baseSpeed * f;
+        } else if ( e->moveAnchor.yzmp.selected ) {
+            int v = ( IsKeyPressed( KEY_UP )   ?  1 : 0 ) + ( IsKeyPressed( KEY_DOWN )  ? -1 : 0 );
+            int f = ( IsKeyPressed( KEY_LEFT ) ? -1 : 0 ) + ( IsKeyPressed( KEY_RIGHT ) ? 1 : 0 );
+            yAmount = moveAmount * v;
+            zAmount = moveAmount * f;
+            //e->vel.y = e->baseSpeed * v;
+            //e->vel.z = e->baseSpeed * f;
+        }
+
+        e->pos.x += xAmount;
+        e->pos.y += yAmount;
+        e->pos.z += zAmount;
+
+        e->bb.min.x += xAmount;
+        e->bb.max.x += xAmount;
+        e->bb.min.y += yAmount;
+        e->bb.max.y += yAmount;
+        e->bb.min.z += zAmount;
+        e->bb.max.z += zAmount;
+
+        e->update( e, &gw->camera, delta );
+
+    }
+
+    if ( IsKeyPressed( KEY_F1 ) ) {
+        drawDebugInfo = !drawDebugInfo;
+    }
 
 }
 
@@ -105,37 +241,76 @@ void drawGameWorld( GameWorld *gw ) {
 
     BeginDrawing();
     ClearBackground( WHITE );
+
     BeginMode3D( gw->camera );
-
     for ( int i = 0; i < gw->entityCount; i++ ) {
-        gw->entities[i].draw( &gw->entities[i] );
+        gw->entities[i].draw( &gw->entities[i], drawDebugInfo );
     }
-
     DrawGrid( 100, 1 );
-
     EndMode3D();
+
+    drawSelectedEntityDebugData( selectedEntity );
+
     EndDrawing();
 
 }
 
-static void updateCamera( GameWorld *gw ) {
+static void updateCamera( GameWorld *gw, float delta ) {
 
     Camera3D *c = &gw->camera;
 
-    if ( IsKeyDown( KEY_DELETE ) ) {
-        cameraAngle += 1;
+    if ( selectedEntity == NULL ) {
+
+        if ( IsKeyDown( KEY_UP ) ) {
+            c->position.y += cameraSpeed * delta;
+        }
+
+        if ( IsKeyDown( KEY_DOWN ) ) {
+            c->position.y -= cameraSpeed * delta;
+        }
+
+        if ( IsKeyDown( KEY_LEFT ) ) {
+            cameraAngle += cameraAngleSpeed * delta;
+        }
+
+        if ( IsKeyDown( KEY_RIGHT ) ) {
+            cameraAngle -= cameraAngleSpeed * delta;
+        }
+
     }
 
-    if ( IsKeyDown( KEY_PAGE_DOWN ) ) {
-        cameraAngle += -1;
+    float m = -GetMouseWheelMove();
+    cameraDistance += cameraSpeed * m * delta;
+
+    c->position.x = cameraDistance * cosf( DEG2RAD * cameraAngle );
+    c->position.z = cameraDistance * sinf( DEG2RAD * cameraAngle );
+
+}
+
+static void drawSelectedEntityDebugData( Entity *e ) {
+
+    if ( e != NULL ) {
+
+        Vector2 pos = GetMousePosition();
+        const int marginLeft = 10;
+        const int marginTop = 10;
+
+        const char *tx = TextFormat( "x: %.2f", e->pos.x );
+        const char *ty = TextFormat( "y: %.2f", e->pos.y );
+        const char *tz = TextFormat( "z: %.2f", e->pos.z );
+
+        DrawRectangleRounded(
+            (Rectangle) { pos.x, pos.y, 100, 80 },
+            0.5f,
+            10,
+            Fade( WHITE, 0.5f )
+        );
+
+        DrawText( tx, pos.x + marginLeft, pos.y + marginTop, 20, BLACK );
+        DrawText( ty, pos.x + marginLeft, pos.y + marginTop + 20, 20, BLACK );
+        DrawText( tz, pos.x + marginLeft, pos.y + marginTop + 40, 20, BLACK );
+
+        
     }
-
-    c->position = (Vector3) {
-        .x = cameraDistance * cosf( DEG2RAD * cameraAngle ),
-        .y = 5.0f,
-        .z = cameraDistance * sinf( DEG2RAD * cameraAngle )
-    };
-
-    //c->target = e->pos;
 
 }
