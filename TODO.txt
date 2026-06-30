@@ -1,6 +1,5 @@
-Refactor code (MoveAnchor and MoveAnchorPanel);
+Improve model position on start;
+Improve camera controls (orbital);
+    Enable to set center (like a empty player)
 
-Make entities by selecting them;
-    Selection needs to the get closest one;
-
-Rotation -> needs to convert to a Model.
+Rotation
