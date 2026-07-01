@@ -16,13 +16,13 @@
 //#include "raylib/raygui.h"       // other compilation units must only include
 //#undef RAYGUI_IMPLEMENTATION     // raygui.h
 
-#include "Entity.h"
+#include "MapPiece.h"
 #include "GameWorld.h"
 #include "MoveAnchor.h"
 #include "ResourceManager.h"
 
 static void updateCamera( GameWorld *gw, float delta );
-static void drawSelectedEntityDebugData( Entity *e );
+static void drawSelectedMapPieceDebugData( MapPiece *e );
 
 static bool drawDebugInfo = true;
 
@@ -31,7 +31,7 @@ static float cameraDistance   = 5.0f;
 static float cameraSpeed      = 10.0f;
 static float cameraAngleSpeed = 60.0f;
 
-static Entity *selectedEntity = NULL;
+static MapPiece *selectedMapPiece = NULL;
 
 /**
  * @brief Creates a dinamically allocated GameWorld struct instance.
@@ -42,10 +42,10 @@ GameWorld *createGameWorld( void ) {
 
     int rows = 7;
     int cols = 5;
-    gw->entityCount = rows * cols;
-    gw->entities = (Entity*) malloc( sizeof( Entity ) * gw->entityCount );
+    gw->mapPieceCount = rows * cols;
+    gw->mapPieces = (MapPiece*) malloc( sizeof( MapPiece ) * gw->mapPieceCount );
 
-    float entitySpacing = 0.0f;
+    float mapPieceSpacing = 0.0f;
 
     Model models[7] = {
         rm->blockGrassLargeTallModel,
@@ -63,9 +63,9 @@ GameWorld *createGameWorld( void ) {
 
         Model baseModel = models[i];
         BoundingBox bb = GetModelBoundingBox( baseModel );
-        float entitySizeZ = bb.max.z - bb.min.z;
+        float mapPieceSizeZ = bb.max.z - bb.min.z;
 
-        startPosZ -= entitySizeZ + entitySpacing;
+        startPosZ -= mapPieceSizeZ + mapPieceSpacing;
 
     }
 
@@ -74,28 +74,28 @@ GameWorld *createGameWorld( void ) {
         Model baseModel = models[i];
         BoundingBox bb = GetModelBoundingBox( baseModel );
 
-        float entitySizeX = bb.max.x - bb.min.x;
-        float entitySizeZ = bb.max.z - bb.min.z;
+        float mapPieceSizeX = bb.max.x - bb.min.x;
+        float mapPieceSizeZ = bb.max.z - bb.min.z;
 
-        float startPosX = - ( ( cols * entitySizeX + ( cols - 1 ) * entitySpacing ) / 2.0f - entitySizeX / 2.0f );
+        float startPosX = - ( ( cols * mapPieceSizeX + ( cols - 1 ) * mapPieceSpacing ) / 2.0f - mapPieceSizeX / 2.0f );
 
         for ( int j = 0; j < cols; j++ ) {
 
             int p = i * cols + j;
 
-            initEntity( 
-                &gw->entities[p], 
+            initMapPiece( 
+                &gw->mapPieces[p], 
                 (Vector3) { 
-                    startPosX + j * (entitySizeX + entitySpacing), 
+                    startPosX + j * (mapPieceSizeX + mapPieceSpacing), 
                     0, 
-                    startPosZ + i * (entitySizeZ + entitySpacing)
+                    startPosZ + i * (mapPieceSizeZ + mapPieceSpacing)
                 },
                 baseModel
             );
 
         }
         
-        startPosZ += entitySizeZ;
+        startPosZ += mapPieceSizeZ;
 
     }
 
@@ -116,8 +116,8 @@ GameWorld *createGameWorld( void ) {
  */
 void destroyGameWorld( GameWorld *gw ) {
     if ( gw != NULL ) {
-        if ( gw->entities != NULL ) {
-            free( gw->entities );
+        if ( gw->mapPieces != NULL ) {
+            free( gw->mapPieces );
         }
         free( gw );
     }
@@ -130,15 +130,15 @@ void updateGameWorld( GameWorld *gw, float delta ) {
 
     updateCamera( gw, delta );
 
-    for ( int i = 0; i < gw->entityCount; i++ ) {
-        gw->entities[i].update( &gw->entities[i], &gw->camera, delta );
+    for ( int i = 0; i < gw->mapPieceCount; i++ ) {
+        gw->mapPieces[i].update( &gw->mapPieces[i], &gw->camera, delta );
     }
 
-    if ( selectedEntity == NULL ) {
+    if ( selectedMapPiece == NULL ) {
 
-        for ( int i = 0; i < gw->entityCount; i++ ) {
+        for ( int i = 0; i < gw->mapPieceCount; i++ ) {
 
-            Entity *e = &gw->entities[i];
+            MapPiece *e = &gw->mapPieces[i];
             bool select = false;
 
             e->moveAnchor.xymp.selected = false;
@@ -164,7 +164,7 @@ void updateGameWorld( GameWorld *gw, float delta ) {
             }
 
             if ( select && IsMouseButtonPressed( MOUSE_BUTTON_LEFT ) ) {
-                selectedEntity = e;
+                selectedMapPiece = e;
                 break;
             }
 
@@ -173,17 +173,17 @@ void updateGameWorld( GameWorld *gw, float delta ) {
     }
 
     if ( IsMouseButtonReleased( MOUSE_BUTTON_LEFT ) ) {
-        if ( selectedEntity != NULL ) {
-            selectedEntity->moveAnchor.xymp.selected = false;
-            selectedEntity->moveAnchor.xzmp.selected = false;
-            selectedEntity->moveAnchor.yzmp.selected = false;
+        if ( selectedMapPiece != NULL ) {
+            selectedMapPiece->moveAnchor.xymp.selected = false;
+            selectedMapPiece->moveAnchor.xzmp.selected = false;
+            selectedMapPiece->moveAnchor.yzmp.selected = false;
         }
-        selectedEntity = NULL;
+        selectedMapPiece = NULL;
     }
 
-    if ( selectedEntity != NULL ) {
+    if ( selectedMapPiece != NULL ) {
 
-        Entity *e = selectedEntity;
+        MapPiece *e = selectedMapPiece;
 
         const float moveAmount = 0.1f;
         float xAmount = 0.0f;
@@ -243,13 +243,13 @@ void drawGameWorld( GameWorld *gw ) {
     ClearBackground( WHITE );
 
     BeginMode3D( gw->camera );
-    for ( int i = 0; i < gw->entityCount; i++ ) {
-        gw->entities[i].draw( &gw->entities[i], drawDebugInfo );
+    for ( int i = 0; i < gw->mapPieceCount; i++ ) {
+        gw->mapPieces[i].draw( &gw->mapPieces[i], drawDebugInfo );
     }
     DrawGrid( 100, 1 );
     EndMode3D();
 
-    drawSelectedEntityDebugData( selectedEntity );
+    drawSelectedMapPieceDebugData( selectedMapPiece );
 
     EndDrawing();
 
@@ -259,7 +259,7 @@ static void updateCamera( GameWorld *gw, float delta ) {
 
     Camera3D *c = &gw->camera;
 
-    if ( selectedEntity == NULL ) {
+    if ( selectedMapPiece == NULL ) {
 
         if ( IsKeyDown( KEY_UP ) ) {
             c->position.y += cameraSpeed * delta;
@@ -287,7 +287,7 @@ static void updateCamera( GameWorld *gw, float delta ) {
 
 }
 
-static void drawSelectedEntityDebugData( Entity *e ) {
+static void drawSelectedMapPieceDebugData( MapPiece *e ) {
 
     if ( e != NULL ) {
 

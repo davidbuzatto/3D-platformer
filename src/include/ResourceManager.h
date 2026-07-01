@@ -19,9 +19,6 @@ typedef struct ResourceManager {
     Model blockGrassLargeModel;
     Model blockGrassLargeTallModel;
 
-    //
-    //block-grass-overhang-corner
-
     /*Texture2D textureExample;
     Sound soundExample;
     Music musicExample;*/

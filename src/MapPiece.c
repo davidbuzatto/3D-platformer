@@ -5,16 +5,16 @@
 #include "raylib/raylib.h"
 #include "raylib/raymath.h"
 
-#include "Entity.h"
+#include "MapPiece.h"
 #include "Macros.h"
 #include "MoveAnchor.h"
 #include "MoveAnchorPlane.h"
 #include "ResourceManager.h"
 
-static void update( Entity *e, Camera3D *camera, float delta );
-static void draw( Entity *e, bool drawDebugInfo );
+static void update( MapPiece *e, Camera3D *camera, float delta );
+static void draw( MapPiece *e, bool drawDebugInfo );
 
-void initEntity( Entity *e, Vector3 pos, Model model ) {
+void initMapPiece( MapPiece *e, Vector3 pos, Model model ) {
     
     e->pos = pos;
     e->vel = (Vector3) { 0 };
@@ -66,28 +66,11 @@ void initEntity( Entity *e, Vector3 pos, Model model ) {
 
 }
 
-static void update( Entity *e, Camera3D *camera, float delta ) {
-
-    /*float xAmount = e->vel.x * delta;
-    float yAmount = e->vel.y * delta;
-    float zAmount = e->vel.z * delta;
-
-    e->pos.x += xAmount;
-    e->pos.y += yAmount;
-    e->pos.z += zAmount;
-
-    e->bb.min.x += xAmount;
-    e->bb.max.x += xAmount;
-    e->bb.min.y += yAmount;
-    e->bb.max.y += yAmount;
-    e->bb.min.z += zAmount;
-    e->bb.max.z += zAmount;*/
-
+static void update( MapPiece *e, Camera3D *camera, float delta ) {
     updateMoveAnchor( &e->moveAnchor, e->pos, e->moveAnchorOffset );
-
 }
 
-static void draw( Entity *e, bool drawDebugInfo ) {
+static void draw( MapPiece *e, bool drawDebugInfo ) {
 
     DrawModel( e->model, e->pos, 1.0, WHITE );
 

@@ -7,9 +7,9 @@
 #include "MoveAnchor.h"
 #include "MoveAnchorPlane.h"
 
-typedef struct Entity Entity;
+typedef struct MapPiece MapPiece;
 
-struct Entity {
+struct MapPiece {
 
     Vector3 pos;
     Vector3 vel;
@@ -22,9 +22,9 @@ struct Entity {
     MoveAnchor moveAnchor;
     Vector3 moveAnchorOffset;
 
-    void (*update)( Entity *e, Camera3D *camera, float delta );
-    void (*draw)( Entity *e, bool drawDebugInfo );
+    void (*update)( MapPiece *e, Camera3D *camera, float delta );
+    void (*draw)( MapPiece *e, bool drawDebugInfo );
 
 };
 
-void initEntity( Entity *e, Vector3 pos, Model model );
+void initMapPiece( MapPiece *e, Vector3 pos, Model model );

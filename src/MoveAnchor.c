@@ -3,15 +3,15 @@
 
 #include "raylib/raylib.h"
 
-#include "Entity.h"
+#include "MapPiece.h"
 #include "MoveAnchor.h"
 #include "MoveAnchorPlane.h"
 
-void updateMoveAnchor( MoveAnchor *ma, Vector3 entityPos, Vector3 moveAnchorOffset ) {
+void updateMoveAnchor( MoveAnchor *ma, Vector3 mapPiecePos, Vector3 moveAnchorOffset ) {
 
-    ma->pos.x = entityPos.x + moveAnchorOffset.x;
-    ma->pos.y = entityPos.y + moveAnchorOffset.y;
-    ma->pos.z = entityPos.z + moveAnchorOffset.z;
+    ma->pos.x = mapPiecePos.x + moveAnchorOffset.x;
+    ma->pos.y = mapPiecePos.y + moveAnchorOffset.y;
+    ma->pos.z = mapPiecePos.z + moveAnchorOffset.z;
 
     ma->xymp.pos = (Vector3) { 
         ma->pos.x, 

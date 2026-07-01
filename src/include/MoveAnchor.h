@@ -2,7 +2,7 @@
 
 #include "raylib/raylib.h"
 
-#include "Entity.h"
+#include "MapPiece.h"
 #include "MoveAnchorPlane.h"
 
 #define MOVE_PLANE_BIG_SIZE 0.3f
@@ -28,6 +28,6 @@ typedef struct {
 
 } MoveAnchor;
 
-void updateMoveAnchor( MoveAnchor *ma, Vector3 entityPos, Vector3 moveAnchorOffset );
+void updateMoveAnchor( MoveAnchor *ma, Vector3 mapPiecePos, Vector3 moveAnchorOffset );
 void drawMoveAnchor( MoveAnchor *ma );
 MoveAnchorCollisionType checkCollisionMouseMoveAnchor( MoveAnchor *ma, Camera3D *camera );

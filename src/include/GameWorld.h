@@ -7,12 +7,12 @@
  */
 #pragma once
 
-#include "Entity.h"
+#include "MapPiece.h"
 
 typedef struct GameWorld {
 
-    Entity *entities;
-    int entityCount;
+    MapPiece *mapPieces;
+    int mapPieceCount;
 
     Camera3D camera;
     
