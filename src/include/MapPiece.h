@@ -22,9 +22,9 @@ struct MapPiece {
     MoveAnchor moveAnchor;
     Vector3 moveAnchorOffset;
 
-    void (*update)( MapPiece *e, Camera3D *camera, float delta );
-    void (*draw)( MapPiece *e, bool drawDebugInfo );
+    void (*update)( MapPiece *mp, Camera3D *camera, float delta );
+    void (*draw)( MapPiece *mp, bool drawDebugInfo );
 
 };
 
-void initMapPiece( MapPiece *e, Vector3 pos, Model model );
+void initMapPiece( MapPiece *mp, Vector3 pos, Model model );

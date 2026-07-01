@@ -11,23 +11,23 @@
 #include "MoveAnchorPlane.h"
 #include "ResourceManager.h"
 
-static void update( MapPiece *e, Camera3D *camera, float delta );
-static void draw( MapPiece *e, bool drawDebugInfo );
+static void update( MapPiece *mp, Camera3D *camera, float delta );
+static void draw( MapPiece *mp, bool drawDebugInfo );
 
-void initMapPiece( MapPiece *e, Vector3 pos, Model model ) {
+void initMapPiece( MapPiece *mp, Vector3 pos, Model model ) {
     
-    e->pos = pos;
-    e->vel = (Vector3) { 0 };
-    e->baseSpeed = 10;
+    mp->pos = pos;
+    mp->vel = (Vector3) { 0 };
+    mp->baseSpeed = 10;
 
-    e->color = BLUE;
-    e->model = model;
-    e->bb = GetModelBoundingBox( e->model );
-    e->bb.min = Vector3Add( e->bb.min, e->pos );
-    e->bb.max = Vector3Add( e->bb.max, e->pos );
+    mp->color = BLUE;
+    mp->model = model;
+    mp->bb = GetModelBoundingBox( mp->model );
+    mp->bb.min = Vector3Add( mp->bb.min, mp->pos );
+    mp->bb.max = Vector3Add( mp->bb.max, mp->pos );
 
-    e->moveAnchor = (MoveAnchor) {
-        .pos = e->pos,
+    mp->moveAnchor = (MoveAnchor) {
+        .pos = mp->pos,
         .movePlaneBigSize = MOVE_PLANE_BIG_SIZE,
         .movePlaneSmallSize = MOVE_PLANE_SMALL_SIZE,
         .xymp = {
@@ -59,24 +59,25 @@ void initMapPiece( MapPiece *e, Vector3 pos, Model model ) {
         }
     };
 
-    e->moveAnchorOffset = (Vector3) { 0, e->bb.max.y - e->bb.min.y + 0.1f, 0 };
+    mp->moveAnchorOffset = (Vector3) { 0, mp->bb.max.y - mp->bb.min.y + 0.1f, 0 };
 
-    e->update = update;
-    e->draw = draw;
+    mp->update = update;
+    mp->draw = draw;
 
 }
 
-static void update( MapPiece *e, Camera3D *camera, float delta ) {
-    updateMoveAnchor( &e->moveAnchor, e->pos, e->moveAnchorOffset );
+static void update( MapPiece *mp, Camera3D *camera, float delta ) {
+    updateMoveAnchor( &mp->moveAnchor, mp->pos, mp->moveAnchorOffset );
 }
 
-static void draw( MapPiece *e, bool drawDebugInfo ) {
+static void draw( MapPiece *mp, bool drawDebugInfo ) {
 
-    DrawModel( e->model, e->pos, 1.0, WHITE );
+    //DrawModel( e->model, e->pos, 1.0f, WHITE );
+    DrawModelEx( mp->model, mp->pos, (Vector3){ 0 }, 0.0f, (Vector3){ 1.0f, 1.0f, 1.0f }, WHITE );
 
     if ( drawDebugInfo ) {
-        DrawBoundingBox( e->bb, BLACK );
-        drawMoveAnchor( &e->moveAnchor );
+        DrawBoundingBox( mp->bb, BLACK );
+        drawMoveAnchor( &mp->moveAnchor );
     }
 
 }

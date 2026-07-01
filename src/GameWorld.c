@@ -22,7 +22,7 @@
 #include "ResourceManager.h"
 
 static void updateCamera( GameWorld *gw, float delta );
-static void drawSelectedMapPieceDebugData( MapPiece *e );
+static void drawSelectedMapPieceDebugData( MapPiece *mp );
 
 static bool drawDebugInfo = true;
 
@@ -145,33 +145,33 @@ void updateGameWorld( GameWorld *gw, float delta ) {
 
         for ( int i = 0; i < gw->mapPieceCount; i++ ) {
 
-            MapPiece *e = &gw->mapPieces[i];
+            MapPiece *mp = &gw->mapPieces[i];
             bool select = false;
 
-            e->moveAnchor.xymp.selected = false;
-            e->moveAnchor.xzmp.selected = false;
-            e->moveAnchor.yzmp.selected = false;
+            mp->moveAnchor.xymp.selected = false;
+            mp->moveAnchor.xzmp.selected = false;
+            mp->moveAnchor.yzmp.selected = false;
 
-            switch ( checkCollisionMouseMoveAnchor( &e->moveAnchor, &gw->camera ) ) {
+            switch ( checkCollisionMouseMoveAnchor( &mp->moveAnchor, &gw->camera ) ) {
                 case MOVE_ANCHOR_COLLISION_TYPE_NONE:
                     select = false;
                     break;
                 case MOVE_ANCHOR_COLLISION_TYPE_XY:
-                    e->moveAnchor.xymp.selected = true;
+                    mp->moveAnchor.xymp.selected = true;
                     select = true;
                     break;
                 case MOVE_ANCHOR_COLLISION_TYPE_XZ:
-                    e->moveAnchor.xzmp.selected = true;
+                    mp->moveAnchor.xzmp.selected = true;
                     select = true;
                     break;
                 case MOVE_ANCHOR_COLLISION_TYPE_YZ:
-                    e->moveAnchor.yzmp.selected = true;
+                    mp->moveAnchor.yzmp.selected = true;
                     select = true;
                     break;
             }
 
             if ( select && IsMouseButtonPressed( MOUSE_BUTTON_LEFT ) ) {
-                selectedMapPiece = e;
+                selectedMapPiece = mp;
                 break;
             }
 
@@ -190,48 +190,42 @@ void updateGameWorld( GameWorld *gw, float delta ) {
 
     if ( selectedMapPiece != NULL ) {
 
-        MapPiece *e = selectedMapPiece;
+        MapPiece *mp = selectedMapPiece;
 
         const float moveAmount = 0.1f;
         float xAmount = 0.0f;
         float yAmount = 0.0f;
         float zAmount = 0.0f;
 
-        if ( e->moveAnchor.xymp.selected ) {
+        if ( mp->moveAnchor.xymp.selected ) {
             int h = ( IsKeyPressed( KEY_LEFT ) ? -1 : 0 ) + ( IsKeyPressed( KEY_RIGHT ) ?  1 : 0 );
             int v = ( IsKeyPressed( KEY_UP )   ?  1 : 0 ) + ( IsKeyPressed( KEY_DOWN )  ? -1 : 0 );
             xAmount = moveAmount * h;
             yAmount = moveAmount * v;
-            //e->vel.x = e->baseSpeed * h;
-            //e->vel.y = e->baseSpeed * v;
-        } else if ( e->moveAnchor.xzmp.selected ) {
+        } else if ( mp->moveAnchor.xzmp.selected ) {
             int h = ( IsKeyPressed( KEY_LEFT ) ? -1 : 0 ) + ( IsKeyPressed( KEY_RIGHT ) ? 1 : 0 );
             int f = ( IsKeyPressed( KEY_UP )   ? -1 : 0 ) + ( IsKeyPressed( KEY_DOWN )  ? 1 : 0 );
             xAmount = moveAmount * h;
             zAmount = moveAmount * f;
-            //e->vel.x = e->baseSpeed * h;
-            //e->vel.z = e->baseSpeed * f;
-        } else if ( e->moveAnchor.yzmp.selected ) {
+        } else if ( mp->moveAnchor.yzmp.selected ) {
             int v = ( IsKeyPressed( KEY_UP )   ?  1 : 0 ) + ( IsKeyPressed( KEY_DOWN )  ? -1 : 0 );
             int f = ( IsKeyPressed( KEY_LEFT ) ? -1 : 0 ) + ( IsKeyPressed( KEY_RIGHT ) ? 1 : 0 );
             yAmount = moveAmount * v;
             zAmount = moveAmount * f;
-            //e->vel.y = e->baseSpeed * v;
-            //e->vel.z = e->baseSpeed * f;
         }
 
-        e->pos.x += xAmount;
-        e->pos.y += yAmount;
-        e->pos.z += zAmount;
+        mp->pos.x += xAmount;
+        mp->pos.y += yAmount;
+        mp->pos.z += zAmount;
 
-        e->bb.min.x += xAmount;
-        e->bb.max.x += xAmount;
-        e->bb.min.y += yAmount;
-        e->bb.max.y += yAmount;
-        e->bb.min.z += zAmount;
-        e->bb.max.z += zAmount;
+        mp->bb.min.x += xAmount;
+        mp->bb.max.x += xAmount;
+        mp->bb.min.y += yAmount;
+        mp->bb.max.y += yAmount;
+        mp->bb.min.z += zAmount;
+        mp->bb.max.z += zAmount;
 
-        e->update( e, &gw->camera, delta );
+        mp->update( mp, &gw->camera, delta );
 
     }
 
@@ -294,17 +288,17 @@ static void updateCamera( GameWorld *gw, float delta ) {
 
 }
 
-static void drawSelectedMapPieceDebugData( MapPiece *e ) {
+static void drawSelectedMapPieceDebugData( MapPiece *mp ) {
 
-    if ( e != NULL ) {
+    if ( mp != NULL ) {
 
         Vector2 pos = GetMousePosition();
         const int marginLeft = 10;
         const int marginTop = 10;
 
-        const char *tx = TextFormat( "x: %.2f", e->pos.x );
-        const char *ty = TextFormat( "y: %.2f", e->pos.y );
-        const char *tz = TextFormat( "z: %.2f", e->pos.z );
+        const char *tx = TextFormat( "x: %.2f", mp->pos.x );
+        const char *ty = TextFormat( "y: %.2f", mp->pos.y );
+        const char *tz = TextFormat( "z: %.2f", mp->pos.z );
 
         DrawRectangleRounded(
             (Rectangle) { pos.x, pos.y, 100, 80 },
