@@ -45,7 +45,7 @@ GameWorld *createGameWorld( void ) {
     gw->mapPieceCount = rows * cols;
     gw->mapPieces = (MapPiece*) malloc( sizeof( MapPiece ) * gw->mapPieceCount );
 
-    float mapPieceSpacing = 0.0f;
+    float mapPieceSpacing = 0.2f;
 
     Model models[7] = {
         rm->blockGrassLargeTallModel,
@@ -65,9 +65,15 @@ GameWorld *createGameWorld( void ) {
         BoundingBox bb = GetModelBoundingBox( baseModel );
         float mapPieceSizeZ = bb.max.z - bb.min.z;
 
-        startPosZ -= mapPieceSizeZ + mapPieceSpacing;
+        startPosZ -= mapPieceSizeZ;
+
+        if ( i < rows - 1 ) {
+            startPosZ -= mapPieceSpacing;
+        }
 
     }
+
+    startPosZ /= 2.0f;
 
     for ( int i = 0; i < rows; i++ ) {
 
@@ -78,6 +84,7 @@ GameWorld *createGameWorld( void ) {
         float mapPieceSizeZ = bb.max.z - bb.min.z;
 
         float startPosX = - ( ( cols * mapPieceSizeX + ( cols - 1 ) * mapPieceSpacing ) / 2.0f - mapPieceSizeX / 2.0f );
+        float rowCenter = startPosZ + mapPieceSizeZ / 2.0f;
 
         for ( int j = 0; j < cols; j++ ) {
 
@@ -87,15 +94,15 @@ GameWorld *createGameWorld( void ) {
                 &gw->mapPieces[p], 
                 (Vector3) { 
                     startPosX + j * (mapPieceSizeX + mapPieceSpacing), 
-                    0, 
-                    startPosZ + i * (mapPieceSizeZ + mapPieceSpacing)
+                    0,
+                    rowCenter
                 },
                 baseModel
             );
 
         }
         
-        startPosZ += mapPieceSizeZ;
+        startPosZ += mapPieceSizeZ + mapPieceSpacing;
 
     }
 
