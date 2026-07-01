@@ -17,8 +17,8 @@ static void draw( MapPiece *mp, bool drawDebugInfo );
 void initMapPiece( MapPiece *mp, Vector3 pos, Model model ) {
     
     mp->pos = pos;
-    mp->vel = (Vector3) { 0 };
-    mp->baseSpeed = 10;
+    mp->rot = (Vector3) { 0 };
+    mp->sca = (Vector3) { 1.0f, 1.0f, 1.0f };
 
     mp->color = BLUE;
     mp->model = model;
@@ -67,13 +67,14 @@ void initMapPiece( MapPiece *mp, Vector3 pos, Model model ) {
 }
 
 static void update( MapPiece *mp, Camera3D *camera, float delta ) {
+    mp->model.transform = MatrixRotateXYZ( (Vector3) { mp->rot.x * DEG2RAD, mp->rot.y * DEG2RAD, mp->rot.z * DEG2RAD } );
     updateMoveAnchor( &mp->moveAnchor, mp->pos, mp->moveAnchorOffset );
 }
 
 static void draw( MapPiece *mp, bool drawDebugInfo ) {
 
-    //DrawModel( e->model, e->pos, 1.0f, WHITE );
-    DrawModelEx( mp->model, mp->pos, (Vector3){ 0 }, 0.0f, (Vector3){ 1.0f, 1.0f, 1.0f }, WHITE );
+    //DrawModel( mp->model, mp->pos, 1.0f, WHITE );
+    DrawModelEx( mp->model, mp->pos, (Vector3){ 0 }, 0.0f, mp->sca, WHITE );
 
     if ( drawDebugInfo ) {
         DrawBoundingBox( mp->bb, BLACK );

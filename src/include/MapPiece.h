@@ -12,8 +12,8 @@ typedef struct MapPiece MapPiece;
 struct MapPiece {
 
     Vector3 pos;
-    Vector3 vel;
-    float baseSpeed;
+    Vector3 rot;
+    Vector3 sca;
 
     Color color;
     Model model;

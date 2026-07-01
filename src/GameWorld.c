@@ -23,6 +23,7 @@
 
 static void updateCamera( GameWorld *gw, float delta );
 static void drawSelectedMapPieceDebugData( MapPiece *mp );
+static void drawOptionsHud( void );
 
 static bool drawDebugInfo = true;
 
@@ -32,6 +33,14 @@ static float cameraSpeed      = 10.0f;
 static float cameraAngleSpeed = 60.0f;
 
 static MapPiece *selectedMapPiece = NULL;
+
+typedef enum {
+    EDIT_MODE_TRANSLATE,
+    EDIT_MODE_ROTATE,
+    EDIT_MODE_SCALE,
+} EditMode;
+
+static EditMode editMode = EDIT_MODE_TRANSLATE;
 
 /**
  * @brief Creates a dinamically allocated GameWorld struct instance.
@@ -193,45 +202,75 @@ void updateGameWorld( GameWorld *gw, float delta ) {
         MapPiece *mp = selectedMapPiece;
 
         const float moveAmount = 0.1f;
+        const float rotateAmount = 10.0f;
+        const float scaleAmount = 0.1f;
+
         float xAmount = 0.0f;
         float yAmount = 0.0f;
         float zAmount = 0.0f;
 
+        int h = 0;
+        int v = 0;
+        int f = 0;
+
         if ( mp->moveAnchor.xymp.selected ) {
-            int h = ( IsKeyPressed( KEY_LEFT ) ? -1 : 0 ) + ( IsKeyPressed( KEY_RIGHT ) ?  1 : 0 );
-            int v = ( IsKeyPressed( KEY_UP )   ?  1 : 0 ) + ( IsKeyPressed( KEY_DOWN )  ? -1 : 0 );
-            xAmount = moveAmount * h;
-            yAmount = moveAmount * v;
+            h = ( IsKeyPressed( KEY_LEFT ) ? -1 : 0 ) + ( IsKeyPressed( KEY_RIGHT ) ?  1 : 0 );
+            v = ( IsKeyPressed( KEY_UP )   ?  1 : 0 ) + ( IsKeyPressed( KEY_DOWN )  ? -1 : 0 );
         } else if ( mp->moveAnchor.xzmp.selected ) {
-            int h = ( IsKeyPressed( KEY_LEFT ) ? -1 : 0 ) + ( IsKeyPressed( KEY_RIGHT ) ? 1 : 0 );
-            int f = ( IsKeyPressed( KEY_UP )   ? -1 : 0 ) + ( IsKeyPressed( KEY_DOWN )  ? 1 : 0 );
-            xAmount = moveAmount * h;
-            zAmount = moveAmount * f;
+            h = ( IsKeyPressed( KEY_LEFT ) ? -1 : 0 ) + ( IsKeyPressed( KEY_RIGHT ) ? 1 : 0 );
+            f = ( IsKeyPressed( KEY_UP )   ? -1 : 0 ) + ( IsKeyPressed( KEY_DOWN )  ? 1 : 0 );
         } else if ( mp->moveAnchor.yzmp.selected ) {
-            int v = ( IsKeyPressed( KEY_UP )   ?  1 : 0 ) + ( IsKeyPressed( KEY_DOWN )  ? -1 : 0 );
-            int f = ( IsKeyPressed( KEY_LEFT ) ? -1 : 0 ) + ( IsKeyPressed( KEY_RIGHT ) ? 1 : 0 );
-            yAmount = moveAmount * v;
-            zAmount = moveAmount * f;
+            v = ( IsKeyPressed( KEY_UP )   ?  1 : 0 ) + ( IsKeyPressed( KEY_DOWN )  ? -1 : 0 );
+            f = ( IsKeyPressed( KEY_LEFT ) ? -1 : 0 ) + ( IsKeyPressed( KEY_RIGHT ) ? 1 : 0 );
         }
 
-        mp->pos.x += xAmount;
-        mp->pos.y += yAmount;
-        mp->pos.z += zAmount;
+        if ( editMode == EDIT_MODE_TRANSLATE ) {
 
-        mp->bb.min.x += xAmount;
-        mp->bb.max.x += xAmount;
-        mp->bb.min.y += yAmount;
-        mp->bb.max.y += yAmount;
-        mp->bb.min.z += zAmount;
-        mp->bb.max.z += zAmount;
+            xAmount = moveAmount * h;
+            yAmount = moveAmount * v;
+            zAmount = moveAmount * f;
+
+            mp->pos.x += xAmount;
+            mp->pos.y += yAmount;
+            mp->pos.z += zAmount;
+
+            mp->bb.min.x += xAmount;
+            mp->bb.max.x += xAmount;
+            mp->bb.min.y += yAmount;
+            mp->bb.max.y += yAmount;
+            mp->bb.min.z += zAmount;
+            mp->bb.max.z += zAmount;
+
+        } else if ( editMode == EDIT_MODE_ROTATE ) {
+
+            xAmount = rotateAmount * h;
+            yAmount = rotateAmount * v;
+            zAmount = rotateAmount * f;
+
+            mp->rot.x += xAmount;
+            mp->rot.y += yAmount;
+            mp->rot.z += zAmount;
+
+        } else if ( editMode == EDIT_MODE_SCALE ) {
+
+            xAmount = scaleAmount * h;
+            yAmount = scaleAmount * v;
+            zAmount = scaleAmount * f;
+
+            mp->sca.x += xAmount;
+            mp->sca.y += yAmount;
+            mp->sca.z += zAmount;
+
+        }
 
         mp->update( mp, &gw->camera, delta );
 
     }
 
-    if ( IsKeyPressed( KEY_F1 ) ) {
-        drawDebugInfo = !drawDebugInfo;
-    }
+    if ( IsKeyPressed( KEY_F1 ) ) drawDebugInfo = !drawDebugInfo;
+    if ( IsKeyPressed( KEY_ONE ) ) editMode = EDIT_MODE_TRANSLATE;
+    if ( IsKeyPressed( KEY_TWO ) ) editMode = EDIT_MODE_ROTATE;
+    if ( IsKeyPressed( KEY_THREE ) ) editMode = EDIT_MODE_SCALE;
 
 }
 
@@ -251,6 +290,7 @@ void drawGameWorld( GameWorld *gw ) {
     EndMode3D();
 
     drawSelectedMapPieceDebugData( selectedMapPiece );
+    drawOptionsHud();
 
     EndDrawing();
 
@@ -312,6 +352,16 @@ static void drawSelectedMapPieceDebugData( MapPiece *mp ) {
         DrawText( tz, pos.x + marginLeft, pos.y + marginTop + 40, 20, BLACK );
 
         
+    }
+
+}
+
+static void drawOptionsHud( void ) {
+
+    switch ( editMode ) {
+        case EDIT_MODE_TRANSLATE: DrawText( "Mode: TRANSLATE", 10, 10, 20, BLACK ); break;
+        case EDIT_MODE_ROTATE:    DrawText( "Mode: ROTATE", 10, 10, 20, BLACK ); break;
+        case EDIT_MODE_SCALE:     DrawText( "Mode: SCALE", 10, 10, 20, BLACK ); break;
     }
 
 }

@@ -1,5 +1,5 @@
-Improve model position on start;
+Needs to reposition MoveAnchor using model scale;
+Change MoveAnchor and MoveAnchorPlane name. Maybe "Gizmo"?
+
 Improve camera controls (orbital);
     Enable to set center (like a empty player)
-
-Rotation
