@@ -7,6 +7,8 @@
 #include "Gizmo.h"
 #include "GizmoAxis.h"
 
+static const float spc = 0.2f;
+
 void updateGizmo( Gizmo *ma, Vector3 mapPiecePos, Vector3 gizmoOffset ) {
 
     ma->pos.x = mapPiecePos.x + gizmoOffset.x;
@@ -14,51 +16,51 @@ void updateGizmo( Gizmo *ma, Vector3 mapPiecePos, Vector3 gizmoOffset ) {
     ma->pos.z = mapPiecePos.z + gizmoOffset.z;
 
     ma->xAxis.pos = (Vector3) { 
-        ma->pos.x, 
-        ma->pos.y + GIZMO_PLANE_BIG_SIZE / 2 + GIZMO_PLANE_SMALL_SIZE / 2, 
-        ma->pos.z - ( GIZMO_PLANE_BIG_SIZE / 2 + GIZMO_PLANE_SMALL_SIZE / 2 )
-    };
-
-    ma->zAxis.pos = (Vector3) { 
-        ma->pos.x, 
+        ma->pos.x - spc, 
         ma->pos.y, 
-        ma->pos.z
+        ma->pos.z - spc
     };
 
     ma->yAxis.pos = (Vector3) { 
-        ma->pos.x + GIZMO_PLANE_BIG_SIZE / 2 + GIZMO_PLANE_SMALL_SIZE / 2, 
-        ma->pos.y + GIZMO_PLANE_BIG_SIZE / 2 + GIZMO_PLANE_SMALL_SIZE / 2,
-        ma->pos.z
+        ma->pos.x + spc, 
+        ma->pos.y + spc * 2.0f,
+        ma->pos.z - spc
+    };
+
+    ma->zAxis.pos = (Vector3) { 
+        ma->pos.x + spc,
+        ma->pos.y, 
+        ma->pos.z + spc
     };
 
 }
 
 void drawGizmo( Gizmo *ma ) {
 
-    const float alpha = 0.5f;
+    const float alpha = 0.7f;
+    Vector3 cornerPos = { ma->yAxis.pos.x, ma->xAxis.pos.y, ma->xAxis.pos.z };
+
+    DrawSphere( cornerPos, ma->xAxis.radius, DARKGRAY );
+    DrawLine3D( cornerPos, ma->xAxis.pos, DARKGRAY );
+    DrawLine3D( cornerPos, ma->yAxis.pos, DARKGRAY );
+    DrawLine3D( cornerPos, ma->zAxis.pos, DARKGRAY );
 
     if ( ma->xAxis.selected ) {
-        DrawCubeV( ma->xAxis.pos, ma->xAxis.dim, ma->xAxis.color );
-        DrawCubeWiresV( ma->xAxis.pos, ma->xAxis.dim, BLACK );
+        DrawSphere( ma->xAxis.pos, ma->xAxis.radius, ma->xAxis.color );
     } else {
-        DrawCubeV( ma->xAxis.pos, ma->xAxis.dim, Fade( ma->xAxis.color, alpha ) );
-        DrawCubeWiresV( ma->xAxis.pos, ma->xAxis.dim, Fade( BLACK, alpha ) );
-    }
-
-    if ( ma->zAxis.selected ) {
-        DrawCubeV( ma->zAxis.pos, ma->zAxis.dim, ma->zAxis.color );
-        DrawCubeWiresV( ma->zAxis.pos, ma->zAxis.dim, BLACK );
-    } else {
-        DrawCubeV( ma->zAxis.pos, ma->zAxis.dim, Fade( ma->zAxis.color, alpha ) );
-        DrawCubeWiresV( ma->zAxis.pos, ma->zAxis.dim, Fade( BLACK, alpha ) );
+        DrawSphere( ma->xAxis.pos, ma->xAxis.radius, Fade( ma->xAxis.color, alpha ) );
     }
 
     if ( ma->yAxis.selected ) {
-        DrawCubeV( ma->yAxis.pos, ma->yAxis.dim, ma->yAxis.color );
-        DrawCubeWiresV( ma->yAxis.pos, ma->yAxis.dim, BLACK );
+        DrawSphere( ma->yAxis.pos, ma->yAxis.radius, ma->yAxis.color );
     } else {
-        DrawCubeV( ma->yAxis.pos, ma->yAxis.dim, Fade( ma->yAxis.color, alpha ) );
-        DrawCubeWiresV( ma->yAxis.pos, ma->yAxis.dim, Fade( BLACK, alpha ) );
+        DrawSphere( ma->yAxis.pos, ma->yAxis.radius, Fade( ma->yAxis.color, alpha ) );
+    }
+
+    if ( ma->zAxis.selected ) {
+        DrawSphere( ma->zAxis.pos, ma->zAxis.radius, ma->zAxis.color );
+    } else {
+        DrawSphere( ma->zAxis.pos, ma->zAxis.radius, Fade( ma->zAxis.color, alpha ) );
     }
 
 }
@@ -67,52 +69,16 @@ GizmoAxisCollisionType checkCollisionMouseGizmo( Gizmo *ma, Camera3D *camera ) {
 
     Ray ray = GetScreenToWorldRay( GetMousePosition(), *camera );
 
-    RayCollision xyCol = GetRayCollisionBox( 
-        ray,
-        (BoundingBox) {
-            .min = { 
-                ma->xAxis.pos.x - ma->gizmoPlaneBigSize / 2,
-                ma->xAxis.pos.y - ma->gizmoPlaneBigSize / 2,
-                ma->xAxis.pos.z - ma->gizmoPlaneSmallSize / 2,
-            },
-            .max = {
-                ma->xAxis.pos.x + ma->gizmoPlaneBigSize / 2,
-                ma->xAxis.pos.y + ma->gizmoPlaneBigSize / 2,
-                ma->xAxis.pos.z + ma->gizmoPlaneSmallSize / 2,
-            },
-        }
+    RayCollision xAxisCol = GetRayCollisionSphere( 
+        ray, ma->xAxis.pos, ma->xAxis.radius
     );
 
-    RayCollision xzCol = GetRayCollisionBox( 
-        ray,
-        (BoundingBox) {
-            .min = { 
-                ma->zAxis.pos.x - ma->gizmoPlaneBigSize / 2,
-                ma->zAxis.pos.y - ma->gizmoPlaneSmallSize / 2,
-                ma->zAxis.pos.z - ma->gizmoPlaneBigSize / 2,
-            },
-            .max = {
-                ma->zAxis.pos.x + ma->gizmoPlaneBigSize / 2,
-                ma->zAxis.pos.y + ma->gizmoPlaneSmallSize / 2,
-                ma->zAxis.pos.z + ma->gizmoPlaneBigSize / 2,
-            },
-        }
+    RayCollision yAxisCol = GetRayCollisionSphere( 
+        ray, ma->yAxis.pos, ma->yAxis.radius
     );
 
-    RayCollision yzCol = GetRayCollisionBox( 
-        ray,
-        (BoundingBox) {
-            .min = { 
-                ma->yAxis.pos.x - ma->gizmoPlaneSmallSize / 2,
-                ma->yAxis.pos.y - ma->gizmoPlaneBigSize / 2,
-                ma->yAxis.pos.z - ma->gizmoPlaneBigSize / 2,
-            },
-            .max = {
-                ma->yAxis.pos.x + ma->gizmoPlaneSmallSize / 2,
-                ma->yAxis.pos.y + ma->gizmoPlaneBigSize / 2,
-                ma->yAxis.pos.z + ma->gizmoPlaneBigSize / 2,
-            },
-        }
+    RayCollision zAxisCol = GetRayCollisionSphere( 
+        ray, ma->zAxis.pos, ma->zAxis.radius
     );
 
     float minDist = INFINITY;
@@ -122,9 +88,9 @@ GizmoAxisCollisionType checkCollisionMouseGizmo( Gizmo *ma, Camera3D *camera ) {
     float xzDist = INFINITY;
     float yzDist = INFINITY;
 
-    if ( xyCol.hit ) xyDist = xyCol.distance;
-    if ( xzCol.hit ) xzDist = xzCol.distance;
-    if ( yzCol.hit ) yzDist = yzCol.distance;
+    if ( xAxisCol.hit ) xyDist = xAxisCol.distance;
+    if ( zAxisCol.hit ) xzDist = zAxisCol.distance;
+    if ( yAxisCol.hit ) yzDist = yAxisCol.distance;
 
     if ( xyDist < minDist ) { 
         minDist = xyDist;

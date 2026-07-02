@@ -13,7 +13,7 @@ typedef enum GizmoAxisCollisionType {
 
 typedef struct {
     Vector3 pos;
-    Vector3 dim;
+    float radius;
     Color color;
     bool selected;
 } GizmoAxis;

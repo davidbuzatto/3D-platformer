@@ -5,15 +5,9 @@
 #include "MapPiece.h"
 #include "GizmoAxis.h"
 
-#define GIZMO_PLANE_BIG_SIZE 0.3f
-#define GIZMO_PLANE_SMALL_SIZE 0.05f
-
 typedef struct {
 
     Vector3 pos;
-
-    float gizmoPlaneBigSize;
-    float gizmoPlaneSmallSize;
 
     GizmoAxis xAxis;
     GizmoAxis yAxis;

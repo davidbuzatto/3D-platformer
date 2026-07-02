@@ -49,10 +49,10 @@ GameWorld *createGameWorld( void ) {
 
     GameWorld *gw = (GameWorld*) malloc( sizeof( GameWorld ) );
 
-    /*int rows = 7;
-    int cols = 5;*/
-    int rows = 1;
-    int cols = 1;
+    int rows = 7;
+    int cols = 5;
+    /*int rows = 1;
+    int cols = 1;*/
     gw->mapPieceCount = rows * cols;
     gw->mapPieces = (MapPiece*) malloc( sizeof( MapPiece ) * gw->mapPieceCount );
 
@@ -208,7 +208,7 @@ void updateGameWorld( GameWorld *gw, float delta ) {
 
         const float translateAmount = 0.1f;
         const float rotateAmount = 1.0f;
-        const float scaleAmount = 0.1f;
+        const float scaleAmount = 0.05f;
 
         float xAmount = 0.0f;
         float yAmount = 0.0f;

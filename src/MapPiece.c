@@ -28,33 +28,19 @@ void initMapPiece( MapPiece *mp, Vector3 pos, Model model ) {
 
     mp->gizmo = (Gizmo) {
         .pos = mp->pos,
-        .gizmoPlaneBigSize = GIZMO_PLANE_BIG_SIZE,
-        .gizmoPlaneSmallSize = GIZMO_PLANE_SMALL_SIZE,
         .xAxis = {
             .pos = { 0 },
-            .dim = {
-                GIZMO_PLANE_BIG_SIZE,
-                GIZMO_PLANE_BIG_SIZE,
-                GIZMO_PLANE_SMALL_SIZE
-            },
+            .radius = 0.1f,
             .color = RED
         },
         .yAxis = {
             .pos = { 0 },
-            .dim = {
-                GIZMO_PLANE_SMALL_SIZE,
-                GIZMO_PLANE_BIG_SIZE,
-                GIZMO_PLANE_BIG_SIZE
-            },
+            .radius = 0.1f,
             .color = GREEN
         },
         .zAxis = {
             .pos = { 0 },
-            .dim = {
-                GIZMO_PLANE_BIG_SIZE,
-                GIZMO_PLANE_SMALL_SIZE,
-                GIZMO_PLANE_BIG_SIZE
-            },
+            .radius = 0.1f,
             .color = BLUE
         }
     };
