@@ -2,6 +2,7 @@
 #include <math.h>
 
 #include "raylib/raylib.h"
+#include "raylib/raymath.h"
 
 #include "MapPiece.h"
 #include "Gizmo.h"
@@ -11,9 +12,7 @@ static const float spc = 0.2f;
 
 void updateGizmo( Gizmo *ma, Vector3 mapPiecePos, Vector3 gizmoOffset ) {
 
-    ma->pos.x = mapPiecePos.x + gizmoOffset.x;
-    ma->pos.y = mapPiecePos.y + gizmoOffset.y;
-    ma->pos.z = mapPiecePos.z + gizmoOffset.z;
+    ma->pos = Vector3Add( mapPiecePos, gizmoOffset );
 
     ma->xAxis.pos = (Vector3) { 
         ma->pos.x - spc, 
@@ -37,28 +36,29 @@ void updateGizmo( Gizmo *ma, Vector3 mapPiecePos, Vector3 gizmoOffset ) {
 
 void drawGizmo( Gizmo *ma ) {
 
+    const float expandFactor = 1.2f;
     const float alpha = 0.7f;
     Vector3 cornerPos = { ma->yAxis.pos.x, ma->xAxis.pos.y, ma->xAxis.pos.z };
 
-    DrawSphere( cornerPos, ma->xAxis.radius, DARKGRAY );
+    DrawSphere( cornerPos, ma->xAxis.radius, Fade( DARKGRAY, alpha ) );
     DrawLine3D( cornerPos, ma->xAxis.pos, DARKGRAY );
     DrawLine3D( cornerPos, ma->yAxis.pos, DARKGRAY );
     DrawLine3D( cornerPos, ma->zAxis.pos, DARKGRAY );
 
     if ( ma->xAxis.selected ) {
-        DrawSphere( ma->xAxis.pos, ma->xAxis.radius, ma->xAxis.color );
+        DrawSphere( ma->xAxis.pos, ma->xAxis.radius * expandFactor, ma->xAxis.color );
     } else {
         DrawSphere( ma->xAxis.pos, ma->xAxis.radius, Fade( ma->xAxis.color, alpha ) );
     }
 
     if ( ma->yAxis.selected ) {
-        DrawSphere( ma->yAxis.pos, ma->yAxis.radius, ma->yAxis.color );
+        DrawSphere( ma->yAxis.pos, ma->yAxis.radius * expandFactor, ma->yAxis.color );
     } else {
         DrawSphere( ma->yAxis.pos, ma->yAxis.radius, Fade( ma->yAxis.color, alpha ) );
     }
 
     if ( ma->zAxis.selected ) {
-        DrawSphere( ma->zAxis.pos, ma->zAxis.radius, ma->zAxis.color );
+        DrawSphere( ma->zAxis.pos, ma->zAxis.radius * expandFactor, ma->zAxis.color );
     } else {
         DrawSphere( ma->zAxis.pos, ma->zAxis.radius, Fade( ma->zAxis.color, alpha ) );
     }
@@ -84,27 +84,27 @@ GizmoAxisCollisionType checkCollisionMouseGizmo( Gizmo *ma, Camera3D *camera ) {
     float minDist = INFINITY;
     GizmoAxisCollisionType collType = GIZMO_AXIS_COLLISION_TYPE_NONE;
 
-    float xyDist = INFINITY;
-    float xzDist = INFINITY;
-    float yzDist = INFINITY;
+    float xDist = INFINITY;
+    float zDist = INFINITY;
+    float yDist = INFINITY;
 
-    if ( xAxisCol.hit ) xyDist = xAxisCol.distance;
-    if ( zAxisCol.hit ) xzDist = zAxisCol.distance;
-    if ( yAxisCol.hit ) yzDist = yAxisCol.distance;
+    if ( xAxisCol.hit ) xDist = xAxisCol.distance;
+    if ( yAxisCol.hit ) yDist = yAxisCol.distance;
+    if ( zAxisCol.hit ) zDist = zAxisCol.distance;
 
-    if ( xyDist < minDist ) { 
-        minDist = xyDist;
-        collType = GIZMO_AXIS_COLLISION_TYPE_XY;
+    if ( xDist < minDist ) { 
+        minDist = xDist;
+        collType = GIZMO_AXIS_COLLISION_TYPE_X;
     }
 
-    if ( xzDist < minDist ) {
-        minDist = xzDist;
-        collType = GIZMO_AXIS_COLLISION_TYPE_XZ;
+    if ( yDist < minDist ) {
+        minDist = yDist;
+        collType = GIZMO_AXIS_COLLISION_TYPE_Y;
     }
 
-    if ( yzDist < minDist ) {
-        minDist = yzDist;
-        collType = GIZMO_AXIS_COLLISION_TYPE_YZ;
+    if ( zDist < minDist ) {
+        minDist = zDist;
+        collType = GIZMO_AXIS_COLLISION_TYPE_Z;
     }
 
     return collType;

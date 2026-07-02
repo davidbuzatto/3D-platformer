@@ -1,6 +1,9 @@
 Needs to reposition Gizmo using model scale;
 Reset gizmo transforms (rotation and scale);
-Persist scene data (model id, position, rotation and scale);
-Load scene data;
+Check model center do apply rotation and scaling;
+
 Improve camera controls (orbital);
     Enable to set center (like a empty player)
+
+Persist scene data (model id, position, rotation and scale);
+Load scene data;

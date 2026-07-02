@@ -169,16 +169,16 @@ void updateGameWorld( GameWorld *gw, float delta ) {
                 case GIZMO_AXIS_COLLISION_TYPE_NONE:
                     select = false;
                     break;
-                case GIZMO_AXIS_COLLISION_TYPE_XY:
+                case GIZMO_AXIS_COLLISION_TYPE_X:
                     mp->gizmo.xAxis.selected = true;
                     select = true;
                     break;
-                case GIZMO_AXIS_COLLISION_TYPE_XZ:
-                    mp->gizmo.zAxis.selected = true;
+                case GIZMO_AXIS_COLLISION_TYPE_Y:
+                    mp->gizmo.yAxis.selected = true;
                     select = true;
                     break;
-                case GIZMO_AXIS_COLLISION_TYPE_YZ:
-                    mp->gizmo.yAxis.selected = true;
+                case GIZMO_AXIS_COLLISION_TYPE_Z:
+                    mp->gizmo.zAxis.selected = true;
                     select = true;
                     break;
             }
