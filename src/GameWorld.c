@@ -144,6 +144,8 @@ void destroyGameWorld( GameWorld *gw ) {
  */
 void updateGameWorld( GameWorld *gw, float delta ) {
 
+    static int yMousePos = 0;
+
     updateCamera( gw, delta );
 
     for ( int i = 0; i < gw->mapPieceCount; i++ ) {
@@ -157,30 +159,31 @@ void updateGameWorld( GameWorld *gw, float delta ) {
             MapPiece *mp = &gw->mapPieces[i];
             bool select = false;
 
-            mp->moveAnchor.xymp.selected = false;
-            mp->moveAnchor.xzmp.selected = false;
-            mp->moveAnchor.yzmp.selected = false;
+            mp->moveAnchor.xmp.selected = false;
+            mp->moveAnchor.zmp.selected = false;
+            mp->moveAnchor.ymp.selected = false;
 
             switch ( checkCollisionMouseMoveAnchor( &mp->moveAnchor, &gw->camera ) ) {
                 case MOVE_ANCHOR_COLLISION_TYPE_NONE:
                     select = false;
                     break;
                 case MOVE_ANCHOR_COLLISION_TYPE_XY:
-                    mp->moveAnchor.xymp.selected = true;
+                    mp->moveAnchor.xmp.selected = true;
                     select = true;
                     break;
                 case MOVE_ANCHOR_COLLISION_TYPE_XZ:
-                    mp->moveAnchor.xzmp.selected = true;
+                    mp->moveAnchor.zmp.selected = true;
                     select = true;
                     break;
                 case MOVE_ANCHOR_COLLISION_TYPE_YZ:
-                    mp->moveAnchor.yzmp.selected = true;
+                    mp->moveAnchor.ymp.selected = true;
                     select = true;
                     break;
             }
 
             if ( select && IsMouseButtonPressed( MOUSE_BUTTON_LEFT ) ) {
                 selectedMapPiece = mp;
+                yMousePos = GetMouseY();
                 break;
             }
 
@@ -190,9 +193,9 @@ void updateGameWorld( GameWorld *gw, float delta ) {
 
     if ( IsMouseButtonReleased( MOUSE_BUTTON_LEFT ) ) {
         if ( selectedMapPiece != NULL ) {
-            selectedMapPiece->moveAnchor.xymp.selected = false;
-            selectedMapPiece->moveAnchor.xzmp.selected = false;
-            selectedMapPiece->moveAnchor.yzmp.selected = false;
+            selectedMapPiece->moveAnchor.xmp.selected = false;
+            selectedMapPiece->moveAnchor.zmp.selected = false;
+            selectedMapPiece->moveAnchor.ymp.selected = false;
         }
         selectedMapPiece = NULL;
     }
@@ -209,26 +212,19 @@ void updateGameWorld( GameWorld *gw, float delta ) {
         float yAmount = 0.0f;
         float zAmount = 0.0f;
 
-        int h = 0;
-        int v = 0;
-        int f = 0;
-
-        if ( mp->moveAnchor.xymp.selected ) {
-            h = ( IsKeyPressed( KEY_LEFT ) ? -1 : 0 ) + ( IsKeyPressed( KEY_RIGHT ) ?  1 : 0 );
-            v = ( IsKeyPressed( KEY_UP )   ?  1 : 0 ) + ( IsKeyPressed( KEY_DOWN )  ? -1 : 0 );
-        } else if ( mp->moveAnchor.xzmp.selected ) {
-            h = ( IsKeyPressed( KEY_LEFT ) ? -1 : 0 ) + ( IsKeyPressed( KEY_RIGHT ) ? 1 : 0 );
-            f = ( IsKeyPressed( KEY_UP )   ? -1 : 0 ) + ( IsKeyPressed( KEY_DOWN )  ? 1 : 0 );
-        } else if ( mp->moveAnchor.yzmp.selected ) {
-            v = ( IsKeyPressed( KEY_UP )   ?  1 : 0 ) + ( IsKeyPressed( KEY_DOWN )  ? -1 : 0 );
-            f = ( IsKeyPressed( KEY_LEFT ) ? -1 : 0 ) + ( IsKeyPressed( KEY_RIGHT ) ? 1 : 0 );
-        }
+        //int ud = ( IsKeyPressed( KEY_UP ) ? 1 : 0 ) + ( IsKeyPressed( KEY_DOWN ) ?  -1 : 0 );
+        int ud = yMousePos - GetMouseY();
+        yMousePos = GetMouseY();
 
         if ( editMode == EDIT_MODE_TRANSLATE ) {
 
-            xAmount = moveAmount * h;
-            yAmount = moveAmount * v;
-            zAmount = moveAmount * f;
+            if ( mp->moveAnchor.xmp.selected ) {
+                xAmount = moveAmount * ud;
+            } else if ( mp->moveAnchor.ymp.selected ) {
+                yAmount = moveAmount * ud;
+            } else if ( mp->moveAnchor.zmp.selected ) {
+                zAmount = moveAmount * ud;
+            }
 
             mp->pos.x += xAmount;
             mp->pos.y += yAmount;
@@ -243,9 +239,13 @@ void updateGameWorld( GameWorld *gw, float delta ) {
 
         } else if ( editMode == EDIT_MODE_ROTATE ) {
 
-            xAmount = rotateAmount * h;
-            yAmount = rotateAmount * v;
-            zAmount = rotateAmount * f;
+            if ( mp->moveAnchor.xmp.selected ) {
+                xAmount = rotateAmount * ud;
+            } else if ( mp->moveAnchor.ymp.selected ) {
+                yAmount = rotateAmount * ud;
+            } else if ( mp->moveAnchor.zmp.selected ) {
+                zAmount = rotateAmount * ud;
+            }
 
             mp->rot.x += xAmount;
             mp->rot.y += yAmount;
@@ -253,9 +253,13 @@ void updateGameWorld( GameWorld *gw, float delta ) {
 
         } else if ( editMode == EDIT_MODE_SCALE ) {
 
-            xAmount = scaleAmount * h;
-            yAmount = scaleAmount * v;
-            zAmount = scaleAmount * f;
+            if ( mp->moveAnchor.xmp.selected ) {
+                xAmount = scaleAmount * ud;
+            } else if ( mp->moveAnchor.ymp.selected ) {
+                yAmount = scaleAmount * ud;
+            } else if ( mp->moveAnchor.zmp.selected ) {
+                zAmount = scaleAmount * ud;
+            }
 
             mp->sca.x += xAmount;
             mp->sca.y += yAmount;

@@ -30,7 +30,7 @@ void initMapPiece( MapPiece *mp, Vector3 pos, Model model ) {
         .pos = mp->pos,
         .movePlaneBigSize = MOVE_PLANE_BIG_SIZE,
         .movePlaneSmallSize = MOVE_PLANE_SMALL_SIZE,
-        .xymp = {
+        .xmp = {
             .pos = { 0 },
             .dim = {
                 MOVE_PLANE_BIG_SIZE,
@@ -39,16 +39,7 @@ void initMapPiece( MapPiece *mp, Vector3 pos, Model model ) {
             },
             .color = GREEN
         },
-        .xzmp = {
-            .pos = { 0 },
-            .dim = {
-                MOVE_PLANE_BIG_SIZE,
-                MOVE_PLANE_SMALL_SIZE,
-                MOVE_PLANE_BIG_SIZE
-            },
-            .color = BLUE
-        },
-        .yzmp = {
+        .ymp = {
             .pos = { 0 },
             .dim = {
                 MOVE_PLANE_SMALL_SIZE,
@@ -56,6 +47,15 @@ void initMapPiece( MapPiece *mp, Vector3 pos, Model model ) {
                 MOVE_PLANE_BIG_SIZE
             },
             .color = RED
+        },
+        .zmp = {
+            .pos = { 0 },
+            .dim = {
+                MOVE_PLANE_BIG_SIZE,
+                MOVE_PLANE_SMALL_SIZE,
+                MOVE_PLANE_BIG_SIZE
+            },
+            .color = BLUE
         }
     };
 

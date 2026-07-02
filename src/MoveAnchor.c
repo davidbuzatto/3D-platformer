@@ -13,19 +13,19 @@ void updateMoveAnchor( MoveAnchor *ma, Vector3 mapPiecePos, Vector3 moveAnchorOf
     ma->pos.y = mapPiecePos.y + moveAnchorOffset.y;
     ma->pos.z = mapPiecePos.z + moveAnchorOffset.z;
 
-    ma->xymp.pos = (Vector3) { 
+    ma->xmp.pos = (Vector3) { 
         ma->pos.x, 
         ma->pos.y + MOVE_PLANE_BIG_SIZE / 2 + MOVE_PLANE_SMALL_SIZE / 2, 
         ma->pos.z - ( MOVE_PLANE_BIG_SIZE / 2 + MOVE_PLANE_SMALL_SIZE / 2 )
     };
 
-    ma->xzmp.pos = (Vector3) { 
+    ma->zmp.pos = (Vector3) { 
         ma->pos.x, 
         ma->pos.y, 
         ma->pos.z
     };
 
-    ma->yzmp.pos = (Vector3) { 
+    ma->ymp.pos = (Vector3) { 
         ma->pos.x + MOVE_PLANE_BIG_SIZE / 2 + MOVE_PLANE_SMALL_SIZE / 2, 
         ma->pos.y + MOVE_PLANE_BIG_SIZE / 2 + MOVE_PLANE_SMALL_SIZE / 2,
         ma->pos.z
@@ -37,28 +37,28 @@ void drawMoveAnchor( MoveAnchor *ma ) {
 
     const float alpha = 0.5f;
 
-    if ( ma->xymp.selected ) {
-        DrawCubeV( ma->xymp.pos, ma->xymp.dim, ma->xymp.color );
-        DrawCubeWiresV( ma->xymp.pos, ma->xymp.dim, BLACK );
+    if ( ma->xmp.selected ) {
+        DrawCubeV( ma->xmp.pos, ma->xmp.dim, ma->xmp.color );
+        DrawCubeWiresV( ma->xmp.pos, ma->xmp.dim, BLACK );
     } else {
-        DrawCubeV( ma->xymp.pos, ma->xymp.dim, Fade( ma->xymp.color, alpha ) );
-        DrawCubeWiresV( ma->xymp.pos, ma->xymp.dim, Fade( BLACK, alpha ) );
+        DrawCubeV( ma->xmp.pos, ma->xmp.dim, Fade( ma->xmp.color, alpha ) );
+        DrawCubeWiresV( ma->xmp.pos, ma->xmp.dim, Fade( BLACK, alpha ) );
     }
 
-    if ( ma->xzmp.selected ) {
-        DrawCubeV( ma->xzmp.pos, ma->xzmp.dim, ma->xzmp.color );
-        DrawCubeWiresV( ma->xzmp.pos, ma->xzmp.dim, BLACK );
+    if ( ma->zmp.selected ) {
+        DrawCubeV( ma->zmp.pos, ma->zmp.dim, ma->zmp.color );
+        DrawCubeWiresV( ma->zmp.pos, ma->zmp.dim, BLACK );
     } else {
-        DrawCubeV( ma->xzmp.pos, ma->xzmp.dim, Fade( ma->xzmp.color, alpha ) );
-        DrawCubeWiresV( ma->xzmp.pos, ma->xzmp.dim, Fade( BLACK, alpha ) );
+        DrawCubeV( ma->zmp.pos, ma->zmp.dim, Fade( ma->zmp.color, alpha ) );
+        DrawCubeWiresV( ma->zmp.pos, ma->zmp.dim, Fade( BLACK, alpha ) );
     }
 
-    if ( ma->yzmp.selected ) {
-        DrawCubeV( ma->yzmp.pos, ma->yzmp.dim, ma->yzmp.color );
-        DrawCubeWiresV( ma->yzmp.pos, ma->yzmp.dim, BLACK );
+    if ( ma->ymp.selected ) {
+        DrawCubeV( ma->ymp.pos, ma->ymp.dim, ma->ymp.color );
+        DrawCubeWiresV( ma->ymp.pos, ma->ymp.dim, BLACK );
     } else {
-        DrawCubeV( ma->yzmp.pos, ma->yzmp.dim, Fade( ma->yzmp.color, alpha ) );
-        DrawCubeWiresV( ma->yzmp.pos, ma->yzmp.dim, Fade( BLACK, alpha ) );
+        DrawCubeV( ma->ymp.pos, ma->ymp.dim, Fade( ma->ymp.color, alpha ) );
+        DrawCubeWiresV( ma->ymp.pos, ma->ymp.dim, Fade( BLACK, alpha ) );
     }
 
 }
@@ -71,14 +71,14 @@ MoveAnchorCollisionType checkCollisionMouseMoveAnchor( MoveAnchor *ma, Camera3D 
         ray,
         (BoundingBox) {
             .min = { 
-                ma->xymp.pos.x - ma->movePlaneBigSize / 2,
-                ma->xymp.pos.y - ma->movePlaneBigSize / 2,
-                ma->xymp.pos.z - ma->movePlaneSmallSize / 2,
+                ma->xmp.pos.x - ma->movePlaneBigSize / 2,
+                ma->xmp.pos.y - ma->movePlaneBigSize / 2,
+                ma->xmp.pos.z - ma->movePlaneSmallSize / 2,
             },
             .max = {
-                ma->xymp.pos.x + ma->movePlaneBigSize / 2,
-                ma->xymp.pos.y + ma->movePlaneBigSize / 2,
-                ma->xymp.pos.z + ma->movePlaneSmallSize / 2,
+                ma->xmp.pos.x + ma->movePlaneBigSize / 2,
+                ma->xmp.pos.y + ma->movePlaneBigSize / 2,
+                ma->xmp.pos.z + ma->movePlaneSmallSize / 2,
             },
         }
     );
@@ -87,14 +87,14 @@ MoveAnchorCollisionType checkCollisionMouseMoveAnchor( MoveAnchor *ma, Camera3D 
         ray,
         (BoundingBox) {
             .min = { 
-                ma->xzmp.pos.x - ma->movePlaneBigSize / 2,
-                ma->xzmp.pos.y - ma->movePlaneSmallSize / 2,
-                ma->xzmp.pos.z - ma->movePlaneBigSize / 2,
+                ma->zmp.pos.x - ma->movePlaneBigSize / 2,
+                ma->zmp.pos.y - ma->movePlaneSmallSize / 2,
+                ma->zmp.pos.z - ma->movePlaneBigSize / 2,
             },
             .max = {
-                ma->xzmp.pos.x + ma->movePlaneBigSize / 2,
-                ma->xzmp.pos.y + ma->movePlaneSmallSize / 2,
-                ma->xzmp.pos.z + ma->movePlaneBigSize / 2,
+                ma->zmp.pos.x + ma->movePlaneBigSize / 2,
+                ma->zmp.pos.y + ma->movePlaneSmallSize / 2,
+                ma->zmp.pos.z + ma->movePlaneBigSize / 2,
             },
         }
     );
@@ -103,14 +103,14 @@ MoveAnchorCollisionType checkCollisionMouseMoveAnchor( MoveAnchor *ma, Camera3D 
         ray,
         (BoundingBox) {
             .min = { 
-                ma->yzmp.pos.x - ma->movePlaneSmallSize / 2,
-                ma->yzmp.pos.y - ma->movePlaneBigSize / 2,
-                ma->yzmp.pos.z - ma->movePlaneBigSize / 2,
+                ma->ymp.pos.x - ma->movePlaneSmallSize / 2,
+                ma->ymp.pos.y - ma->movePlaneBigSize / 2,
+                ma->ymp.pos.z - ma->movePlaneBigSize / 2,
             },
             .max = {
-                ma->yzmp.pos.x + ma->movePlaneSmallSize / 2,
-                ma->yzmp.pos.y + ma->movePlaneBigSize / 2,
-                ma->yzmp.pos.z + ma->movePlaneBigSize / 2,
+                ma->ymp.pos.x + ma->movePlaneSmallSize / 2,
+                ma->ymp.pos.y + ma->movePlaneBigSize / 2,
+                ma->ymp.pos.z + ma->movePlaneBigSize / 2,
             },
         }
     );

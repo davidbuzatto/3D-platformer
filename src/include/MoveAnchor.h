@@ -22,9 +22,9 @@ typedef struct {
     float movePlaneBigSize;
     float movePlaneSmallSize;
 
-    MoveAnchorPlane xymp;
-    MoveAnchorPlane xzmp;
-    MoveAnchorPlane yzmp;
+    MoveAnchorPlane xmp;
+    MoveAnchorPlane ymp;
+    MoveAnchorPlane zmp;
 
 } MoveAnchor;
 
