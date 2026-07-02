@@ -17,6 +17,8 @@ const ResourceManager * const rm = &_rm;
 
 void loadResourcesResourceManager( void ) {
 
+    _rm.baseFont = LoadFontEx( "resources/fonts/space-mono/SpaceMono-Bold.ttf", 20, NULL, 250 );
+
     _rm.blockGrassModel = LoadModel( "resources/models/block-grass.glb" );
     _rm.blockGrassCornerModel = LoadModel( "resources/models/block-grass-corner.glb" );
     _rm.blockGrassCurveModel = LoadModel( "resources/models/block-grass-curve.glb" );
@@ -32,6 +34,8 @@ void loadResourcesResourceManager( void ) {
 }
 
 void unloadResourcesResourceManager( void ) {
+
+    UnloadFont( _rm.baseFont );
 
     UnloadModel( _rm.blockGrassModel );
     UnloadModel( _rm.blockGrassCornerModel );

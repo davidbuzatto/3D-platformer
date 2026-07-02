@@ -1,5 +1,3 @@
-Needs to reposition MoveAnchor using model scale;
-Change MoveAnchor and MoveAnchorPlane name. Maybe "Gizmo"?
-
+Needs to reposition Gizmo using model scale;
 Improve camera controls (orbital);
     Enable to set center (like a empty player)

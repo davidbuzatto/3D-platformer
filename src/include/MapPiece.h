@@ -4,8 +4,8 @@
 
 #include "raylib/raylib.h"
 
-#include "MoveAnchor.h"
-#include "MoveAnchorPlane.h"
+#include "Gizmo.h"
+#include "GizmoAxis.h"
 
 typedef struct MapPiece MapPiece;
 
@@ -19,8 +19,8 @@ struct MapPiece {
     Model model;
     BoundingBox bb;
 
-    MoveAnchor moveAnchor;
-    Vector3 moveAnchorOffset;
+    Gizmo gizmo;
+    Vector3 gizmoOffset;
 
     void (*update)( MapPiece *mp, Camera3D *camera, float delta );
     void (*draw)( MapPiece *mp, bool drawDebugInfo );

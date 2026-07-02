@@ -11,6 +11,8 @@
 
 typedef struct ResourceManager {
 
+    Font baseFont;
+
     Model blockGrassModel;
     Model blockGrassCornerModel;
     Model blockGrassCurveModel;

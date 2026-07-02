@@ -7,8 +7,8 @@
 
 #include "MapPiece.h"
 #include "Macros.h"
-#include "MoveAnchor.h"
-#include "MoveAnchorPlane.h"
+#include "Gizmo.h"
+#include "GizmoAxis.h"
 #include "ResourceManager.h"
 
 static void update( MapPiece *mp, Camera3D *camera, float delta );
@@ -17,7 +17,7 @@ static void draw( MapPiece *mp, bool drawDebugInfo );
 void initMapPiece( MapPiece *mp, Vector3 pos, Model model ) {
     
     mp->pos = pos;
-    mp->rot = (Vector3) { 0 };
+    mp->rot = (Vector3) { 0.0f, 0.0f, 0.0f };
     mp->sca = (Vector3) { 1.0f, 1.0f, 1.0f };
 
     mp->color = BLUE;
@@ -26,40 +26,40 @@ void initMapPiece( MapPiece *mp, Vector3 pos, Model model ) {
     mp->bb.min = Vector3Add( mp->bb.min, mp->pos );
     mp->bb.max = Vector3Add( mp->bb.max, mp->pos );
 
-    mp->moveAnchor = (MoveAnchor) {
+    mp->gizmo = (Gizmo) {
         .pos = mp->pos,
-        .movePlaneBigSize = MOVE_PLANE_BIG_SIZE,
-        .movePlaneSmallSize = MOVE_PLANE_SMALL_SIZE,
-        .xmp = {
+        .gizmoPlaneBigSize = GIZMO_PLANE_BIG_SIZE,
+        .gizmoPlaneSmallSize = GIZMO_PLANE_SMALL_SIZE,
+        .xAxis = {
             .pos = { 0 },
             .dim = {
-                MOVE_PLANE_BIG_SIZE,
-                MOVE_PLANE_BIG_SIZE,
-                MOVE_PLANE_SMALL_SIZE
-            },
-            .color = GREEN
-        },
-        .ymp = {
-            .pos = { 0 },
-            .dim = {
-                MOVE_PLANE_SMALL_SIZE,
-                MOVE_PLANE_BIG_SIZE,
-                MOVE_PLANE_BIG_SIZE
+                GIZMO_PLANE_BIG_SIZE,
+                GIZMO_PLANE_BIG_SIZE,
+                GIZMO_PLANE_SMALL_SIZE
             },
             .color = RED
         },
-        .zmp = {
+        .yAxis = {
             .pos = { 0 },
             .dim = {
-                MOVE_PLANE_BIG_SIZE,
-                MOVE_PLANE_SMALL_SIZE,
-                MOVE_PLANE_BIG_SIZE
+                GIZMO_PLANE_SMALL_SIZE,
+                GIZMO_PLANE_BIG_SIZE,
+                GIZMO_PLANE_BIG_SIZE
+            },
+            .color = GREEN
+        },
+        .zAxis = {
+            .pos = { 0 },
+            .dim = {
+                GIZMO_PLANE_BIG_SIZE,
+                GIZMO_PLANE_SMALL_SIZE,
+                GIZMO_PLANE_BIG_SIZE
             },
             .color = BLUE
         }
     };
 
-    mp->moveAnchorOffset = (Vector3) { 0, mp->bb.max.y - mp->bb.min.y + 0.1f, 0 };
+    mp->gizmoOffset = (Vector3) { 0, mp->bb.max.y - mp->bb.min.y + 0.1f, 0 };
 
     mp->update = update;
     mp->draw = draw;
@@ -68,7 +68,7 @@ void initMapPiece( MapPiece *mp, Vector3 pos, Model model ) {
 
 static void update( MapPiece *mp, Camera3D *camera, float delta ) {
     mp->model.transform = MatrixRotateXYZ( (Vector3) { mp->rot.x * DEG2RAD, mp->rot.y * DEG2RAD, mp->rot.z * DEG2RAD } );
-    updateMoveAnchor( &mp->moveAnchor, mp->pos, mp->moveAnchorOffset );
+    updateGizmo( &mp->gizmo, mp->pos, mp->gizmoOffset );
 }
 
 static void draw( MapPiece *mp, bool drawDebugInfo ) {
@@ -78,7 +78,7 @@ static void draw( MapPiece *mp, bool drawDebugInfo ) {
 
     if ( drawDebugInfo ) {
         DrawBoundingBox( mp->bb, BLACK );
-        drawMoveAnchor( &mp->moveAnchor );
+        drawGizmo( &mp->gizmo );
     }
 
 }
