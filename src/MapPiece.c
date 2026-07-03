@@ -12,7 +12,7 @@
 #include "ResourceManager.h"
 
 static void update( MapPiece *mp, Camera3D *camera, float delta );
-static void draw( MapPiece *mp, bool drawDebugInfo );
+static void draw( MapPiece *mp );
 
 void initMapPiece( MapPiece *mp, Vector3 pos, Model model ) {
     
@@ -46,6 +46,7 @@ void initMapPiece( MapPiece *mp, Vector3 pos, Model model ) {
     };
 
     mp->gizmoOffset = (Vector3) { 0, mp->bb.max.y - mp->bb.min.y + 0.1f, 0 };
+    mp->selected = false;
 
     mp->update = update;
     mp->draw = draw;
@@ -57,12 +58,12 @@ static void update( MapPiece *mp, Camera3D *camera, float delta ) {
     updateGizmo( &mp->gizmo, mp->pos, mp->gizmoOffset );
 }
 
-static void draw( MapPiece *mp, bool drawDebugInfo ) {
+static void draw( MapPiece *mp ) {
 
     //DrawModel( mp->model, mp->pos, 1.0f, WHITE );
     DrawModelEx( mp->model, mp->pos, (Vector3){ 0 }, 0.0f, mp->sca, WHITE );
 
-    if ( drawDebugInfo ) {
+    if ( mp->selected ) {
         DrawBoundingBox( mp->bb, BLACK );
         drawGizmo( &mp->gizmo );
     }

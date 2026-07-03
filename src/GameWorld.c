@@ -21,9 +21,27 @@
 #include "Gizmo.h"
 #include "ResourceManager.h"
 
-static void updateCamera( GameWorld *gw, float delta );
-static void drawSelectedMapPieceDebugData( MapPiece *mp );
-static void drawOptionsHud( void );
+typedef enum {
+    EDITOR_MODE_SELECT_MAP_PIECE,
+    EDITOR_MODE_ADD_MAP_PIECE,
+    EDITOR_MODE_TRANSLATE_MAP_PIECE,
+    EDITOR_MODE_ROTATE_MAP_PIECE,
+    EDITOR_MODE_SCALE_MAP_PIECE,
+} EditorMode;
+
+typedef struct {
+    MapPiece *mapPiece;
+    float distance;
+} MapPieceDistance;
+
+static void updateCamera( Camera *camera, float delta );
+static void drawEditorHud( void );
+
+static void deselectSelectedMapPiece( void );
+static MapPiece *getMapPieceFromRay( GameWorld *gw );
+static int mapPieceDistanceComparator( const void *a, const void *b );
+static bool selectGizmoAxisFromSelectedMapPiece( MapPiece *mp, Camera *camera );
+static void performGizmoOperation( MapPiece *mp, Camera *camera, float delta );
 
 static bool drawDebugInfo = true;
 
@@ -32,29 +50,30 @@ static float cameraDistance   = 5.0f;
 static float cameraSpeed      = 10.0f;
 static float cameraAngleSpeed = 60.0f;
 
+static bool performingGizmoOperation = false;
+static int yForGizmoOperation = 0;
+
 static MapPiece *selectedMapPiece = NULL;
 
-typedef enum {
-    GIZMO_MODE_TRANSLATE,
-    GIZMO_MODE_ROTATE,
-    GIZMO_MODE_SCALE,
-} EditMode;
-
-static EditMode gizmoMode = GIZMO_MODE_TRANSLATE;
+static EditorMode editorMode = EDITOR_MODE_SELECT_MAP_PIECE;
+static EditorMode gizmoMode = EDITOR_MODE_TRANSLATE_MAP_PIECE;
 
 /**
  * @brief Creates a dinamically allocated GameWorld struct instance.
  */
 GameWorld *createGameWorld( void ) {
 
+    SetExitKey( KEY_NULL );
+
     GameWorld *gw = (GameWorld*) malloc( sizeof( GameWorld ) );
 
     int rows = 7;
     int cols = 5;
-    /*int rows = 1;
-    int cols = 1;*/
-    gw->mapPieceCount = rows * cols;
-    gw->mapPieces = (MapPiece*) malloc( sizeof( MapPiece ) * gw->mapPieceCount );
+    /*int rows = 0;
+    int cols = 0;*/
+    gw->maxMapPieces = 100;
+    gw->mapPiecesCount = 0;
+    gw->mapPieces = (MapPiece*) malloc( sizeof( MapPiece ) * gw->maxMapPieces );
 
     float mapPieceSpacing = 0.2f;
 
@@ -111,6 +130,8 @@ GameWorld *createGameWorld( void ) {
                 baseModel
             );
 
+            gw->mapPiecesCount++;
+
         }
         
         startPosZ += mapPieceSizeZ + mapPieceSpacing;
@@ -146,137 +167,134 @@ void destroyGameWorld( GameWorld *gw ) {
  */
 void updateGameWorld( GameWorld *gw, float delta ) {
 
-    static int yMousePos = 0;
+    Camera *camera = &gw->camera;
+    updateCamera( camera, delta );
 
-    updateCamera( gw, delta );
-
-    for ( int i = 0; i < gw->mapPieceCount; i++ ) {
-        gw->mapPieces[i].update( &gw->mapPieces[i], &gw->camera, delta );
+    for ( int i = 0; i < gw->mapPiecesCount; i++ ) {
+        gw->mapPieces[i].update( &gw->mapPieces[i], camera, delta );
     }
 
-    if ( selectedMapPiece == NULL ) {
+    if ( IsMouseButtonPressed( MOUSE_BUTTON_LEFT ) ) {
 
-        for ( int i = 0; i < gw->mapPieceCount; i++ ) {
+        if ( editorMode == EDITOR_MODE_SELECT_MAP_PIECE ) {
 
-            MapPiece *mp = &gw->mapPieces[i];
-            bool select = false;
 
-            mp->gizmo.xAxis.selected = false;
-            mp->gizmo.zAxis.selected = false;
-            mp->gizmo.yAxis.selected = false;
 
-            switch ( checkCollisionMouseGizmo( &mp->gizmo, &gw->camera ) ) {
-                case GIZMO_AXIS_COLLISION_TYPE_NONE:
-                    select = false;
-                    break;
-                case GIZMO_AXIS_COLLISION_TYPE_X:
-                    mp->gizmo.xAxis.selected = true;
-                    select = true;
-                    break;
-                case GIZMO_AXIS_COLLISION_TYPE_Y:
-                    mp->gizmo.yAxis.selected = true;
-                    select = true;
-                    break;
-                case GIZMO_AXIS_COLLISION_TYPE_Z:
-                    mp->gizmo.zAxis.selected = true;
-                    select = true;
-                    break;
-            }
+        } else if ( editorMode == EDITOR_MODE_ADD_MAP_PIECE ) {
 
-            if ( select && IsMouseButtonPressed( MOUSE_BUTTON_LEFT ) ) {
-                selectedMapPiece = mp;
-                yMousePos = GetMouseY();
-                break;
+            Ray ray = GetMouseRay( GetMousePosition(), *camera );
+            RayCollision rc = GetRayCollisionBox( 
+                ray, 
+                (BoundingBox) {
+                    .min = { -10000.0f, 0.0f, -10000.0f },
+                    .max = {  10000.0f, 0.0f,  10000.0f }
+                }
+            );
+
+            if ( rc.hit && gw->mapPiecesCount < gw->maxMapPieces ) {
+                initMapPiece( 
+                    &gw->mapPieces[gw->mapPiecesCount],
+                    rc.point,
+                    rm->blockGrassModel
+                );
+                gw->mapPiecesCount++;
             }
 
         }
 
     }
 
-    if ( IsMouseButtonReleased( MOUSE_BUTTON_LEFT ) ) {
-        if ( selectedMapPiece != NULL ) {
-            selectedMapPiece->gizmo.xAxis.selected = false;
-            selectedMapPiece->gizmo.zAxis.selected = false;
-            selectedMapPiece->gizmo.yAxis.selected = false;
-        }
-        selectedMapPiece = NULL;
-    }
+    if ( editorMode == EDITOR_MODE_SELECT_MAP_PIECE ) {
 
-    if ( selectedMapPiece != NULL ) {
+        if ( IsMouseButtonPressed( MOUSE_BUTTON_LEFT ) ) {
 
-        MapPiece *mp = selectedMapPiece;
-
-        const float translateAmount = 0.1f;
-        const float rotateAmount = 1.0f;
-        const float scaleAmount = 0.05f;
-
-        float xAmount = 0.0f;
-        float yAmount = 0.0f;
-        float zAmount = 0.0f;
-
-        //int ud = ( IsKeyPressed( KEY_UP ) ? 1 : 0 ) + ( IsKeyPressed( KEY_DOWN ) ?  -1 : 0 );
-        int ud = yMousePos - GetMouseY();
-        yMousePos = GetMouseY();
-
-        if ( gizmoMode == GIZMO_MODE_TRANSLATE ) {
-
-            if ( mp->gizmo.xAxis.selected ) {
-                xAmount = translateAmount * ud;
-            } else if ( mp->gizmo.yAxis.selected ) {
-                yAmount = translateAmount * ud;
-            } else if ( mp->gizmo.zAxis.selected ) {
-                zAmount = translateAmount * ud;
+            // priority 1: gizmo operation for selected map piece
+            if ( selectedMapPiece != NULL ) {
+                if ( selectGizmoAxisFromSelectedMapPiece( selectedMapPiece, camera ) ) {
+                    yForGizmoOperation = GetMouseY();
+                    performingGizmoOperation = true;
+                }
             }
 
-            mp->pos.x += xAmount;
-            mp->pos.y += yAmount;
-            mp->pos.z += zAmount;
+            // priority 2: select a map piece
+            // TODO: select the nearest one!!!
+            if ( !performingGizmoOperation ) {
 
-            mp->bb.min.x += xAmount;
-            mp->bb.max.x += xAmount;
-            mp->bb.min.y += yAmount;
-            mp->bb.max.y += yAmount;
-            mp->bb.min.z += zAmount;
-            mp->bb.max.z += zAmount;
+                MapPiece *mp = getMapPieceFromRay( gw );
 
-        } else if ( gizmoMode == GIZMO_MODE_ROTATE ) {
+                if ( mp != NULL ) {
+                    deselectSelectedMapPiece();
+                    selectedMapPiece = mp;
+                    selectedMapPiece->selected = true;
+                }
 
-            if ( mp->gizmo.xAxis.selected ) {
-                xAmount = rotateAmount * ud;
-            } else if ( mp->gizmo.yAxis.selected ) {
-                yAmount = rotateAmount * ud;
-            } else if ( mp->gizmo.zAxis.selected ) {
-                zAmount = rotateAmount * ud;
             }
-
-            mp->rot.x += xAmount;
-            mp->rot.y += yAmount;
-            mp->rot.z += zAmount;
-
-        } else if ( gizmoMode == GIZMO_MODE_SCALE ) {
-
-            if ( mp->gizmo.xAxis.selected ) {
-                xAmount = scaleAmount * ud;
-            } else if ( mp->gizmo.yAxis.selected ) {
-                yAmount = scaleAmount * ud;
-            } else if ( mp->gizmo.zAxis.selected ) {
-                zAmount = scaleAmount * ud;
-            }
-
-            mp->sca.x += xAmount;
-            mp->sca.y += yAmount;
-            mp->sca.z += zAmount;
 
         }
 
-        mp->update( mp, &gw->camera, delta );
+        if ( IsMouseButtonReleased( MOUSE_BUTTON_LEFT ) ) {
+            if ( selectedMapPiece != NULL ) {
+                selectedMapPiece->gizmo.xAxis.selected = false;
+                selectedMapPiece->gizmo.zAxis.selected = false;
+                selectedMapPiece->gizmo.yAxis.selected = false;
+            }
+            performingGizmoOperation = false;
+        }
+
+        if ( selectedMapPiece != NULL && performingGizmoOperation ) {
+            performGizmoOperation( selectedMapPiece, camera, delta );
+        }
+
+        if ( IsKeyPressed( KEY_R ) && selectedMapPiece != NULL ) {
+            selectedMapPiece->rot = (Vector3) { 0 };
+            selectedMapPiece->sca = (Vector3) { 1.0f, 1.0f, 1.0f };
+        }
+
+        if ( IsKeyPressed( KEY_ESCAPE ) ) {
+            deselectSelectedMapPiece();
+        }
+
+        if ( IsKeyPressed( KEY_ONE ) )   gizmoMode = EDITOR_MODE_TRANSLATE_MAP_PIECE;
+        if ( IsKeyPressed( KEY_TWO ) )   gizmoMode = EDITOR_MODE_ROTATE_MAP_PIECE;
+        if ( IsKeyPressed( KEY_THREE ) ) gizmoMode = EDITOR_MODE_SCALE_MAP_PIECE;
+        
+    } else if ( editorMode == EDITOR_MODE_ADD_MAP_PIECE ) {
+
+        if ( IsMouseButtonPressed( MOUSE_BUTTON_LEFT ) ) {
+
+            Ray ray = GetMouseRay( GetMousePosition(), *camera );
+            RayCollision rc = GetRayCollisionBox( 
+                ray, 
+                (BoundingBox) {
+                    .min = { -10000.0f, 0.0f, -10000.0f },
+                    .max = {  10000.0f, 0.0f,  10000.0f }
+                }
+            );
+
+            if ( rc.hit && gw->mapPiecesCount < gw->maxMapPieces ) {
+                initMapPiece( 
+                    &gw->mapPieces[gw->mapPiecesCount],
+                    rc.point,
+                    rm->blockGrassModel   // TODO: allow model selection
+                );
+                gw->mapPiecesCount++;
+            }
+
+        }
 
     }
 
-    if ( IsKeyPressed( KEY_F1 ) ) drawDebugInfo = !drawDebugInfo;
-    if ( IsKeyPressed( KEY_ONE ) ) gizmoMode = GIZMO_MODE_TRANSLATE;
-    if ( IsKeyPressed( KEY_TWO ) ) gizmoMode = GIZMO_MODE_ROTATE;
-    if ( IsKeyPressed( KEY_THREE ) ) gizmoMode = GIZMO_MODE_SCALE;
+    if ( IsKeyPressed( KEY_F1 ) ) {
+        editorMode = EDITOR_MODE_SELECT_MAP_PIECE;
+        deselectSelectedMapPiece();
+    }
+
+    if ( IsKeyPressed( KEY_F2 ) ) {
+        editorMode = EDITOR_MODE_ADD_MAP_PIECE;
+        deselectSelectedMapPiece();
+    }
+
+    if ( IsKeyPressed( KEY_F6 ) ) drawDebugInfo = !drawDebugInfo;
 
 }
 
@@ -289,31 +307,28 @@ void drawGameWorld( GameWorld *gw ) {
     ClearBackground( WHITE );
 
     BeginMode3D( gw->camera );
-    for ( int i = 0; i < gw->mapPieceCount; i++ ) {
-        gw->mapPieces[i].draw( &gw->mapPieces[i], drawDebugInfo );
+    for ( int i = 0; i < gw->mapPiecesCount; i++ ) {
+        gw->mapPieces[i].draw( &gw->mapPieces[i] );
     }
     DrawGrid( 100, 1 );
     EndMode3D();
 
-    drawSelectedMapPieceDebugData( selectedMapPiece );
-    drawOptionsHud();
+    drawEditorHud();
 
     EndDrawing();
 
 }
 
-static void updateCamera( GameWorld *gw, float delta ) {
-
-    Camera3D *c = &gw->camera;
+static void updateCamera( Camera *camera, float delta ) {
 
     if ( selectedMapPiece == NULL ) {
 
         if ( IsKeyDown( KEY_UP ) ) {
-            c->position.y += cameraSpeed * delta;
+            camera->position.y += cameraSpeed * delta;
         }
 
         if ( IsKeyDown( KEY_DOWN ) ) {
-            c->position.y -= cameraSpeed * delta;
+            camera->position.y -= cameraSpeed * delta;
         }
 
         if ( IsKeyDown( KEY_LEFT ) ) {
@@ -329,67 +344,294 @@ static void updateCamera( GameWorld *gw, float delta ) {
     float m = -GetMouseWheelMove();
     cameraDistance += cameraSpeed * m * delta;
 
-    c->position.x = cameraDistance * cosf( DEG2RAD * cameraAngle );
-    c->position.z = cameraDistance * sinf( DEG2RAD * cameraAngle );
+    camera->position.x = cameraDistance * cosf( DEG2RAD * cameraAngle );
+    camera->position.z = cameraDistance * sinf( DEG2RAD * cameraAngle );
 
 }
 
-static void drawSelectedMapPieceDebugData( MapPiece *mp ) {
+static void drawEditorHud( void ) {
 
-    if ( mp != NULL ) {
+    const int marginTop = 10;
+    const int marginLeft = 10;
+    Vector2 pos = { 10, 10 };
 
-        Vector2 pos = GetMousePosition();
-        const int marginTop = 10;
-        int marginLeft = 10;
+    DrawRectangleRounded(
+        (Rectangle) { pos.x, pos.y, 300, 40 },
+        0.2f,
+        10,
+        Fade( WHITE, 0.7f )
+    );
+
+    DrawRectangleRoundedLinesEx(
+        (Rectangle) { pos.x, pos.y, 300, 40 },
+        0.2f,
+        10,
+        2.0f,
+        BLACK
+    );
+
+    switch ( editorMode ) {
+        case EDITOR_MODE_SELECT_MAP_PIECE: 
+            DrawTextEx( 
+                rm->baseFont, 
+                "Editor Mode: SELECT", 
+                (Vector2) { pos.x + marginLeft, pos.y + marginTop }, 
+                20, 0.0f, BLACK
+            );
+            break;
+        case EDITOR_MODE_ADD_MAP_PIECE:
+            DrawTextEx( 
+                rm->baseFont, 
+                "Editor Mode: ADD",
+                (Vector2) { pos.x + marginLeft, pos.y + marginTop },
+                20, 0.0f, BLACK
+            );
+            break;
+        default:
+            break;
+    }
+
+    if ( selectedMapPiece != NULL ) {
+
+        MapPiece *mp = selectedMapPiece;
+
+        const int mpPropMarginTop = 10;
+        int mpPropMarginLeft = 10;
+        Vector2 mpPropPos = { 10, GetScreenHeight() - 120 - mpPropMarginTop };
 
         DrawRectangleRounded(
-            (Rectangle) { pos.x, pos.y, 300, 100 },
+            (Rectangle) { mpPropPos.x, mpPropPos.y, 300, 120 },
             0.2f,
             10,
-            Fade( WHITE, 0.5f )
+            Fade( WHITE, 0.7f )
         );
+
+        DrawRectangleRoundedLinesEx(
+            (Rectangle) { mpPropPos.x, mpPropPos.y, 300, 120 },
+            0.2f,
+            10,
+            2.0f,
+            BLACK
+        );
+
+        switch ( gizmoMode ) {
+            case EDITOR_MODE_TRANSLATE_MAP_PIECE: 
+                DrawTextEx( 
+                    rm->baseFont, 
+                    "Gizmo Mode: TRANSLATE", 
+                    (Vector2) { mpPropPos.x + mpPropMarginLeft, mpPropPos.y + mpPropMarginTop }, 
+                    20, 0.0f, BLACK
+                );
+                break;
+            case EDITOR_MODE_ROTATE_MAP_PIECE:
+                DrawTextEx( 
+                    rm->baseFont, 
+                    "Gizmo Mode: ROTATE",
+                    (Vector2) { mpPropPos.x + mpPropMarginLeft, mpPropPos.y + mpPropMarginTop },
+                    20, 0.0f, BLACK
+                );
+                break;
+            case EDITOR_MODE_SCALE_MAP_PIECE:
+                DrawTextEx( 
+                    rm->baseFont,
+                    "Gizmo Mode: SCALE",
+                    (Vector2) { mpPropPos.x + mpPropMarginLeft, mpPropPos.y + mpPropMarginTop },
+                    20, 0.0f,
+                    BLACK
+                );
+                break;
+            default:
+                break;
+        }
 
         const char *px = TextFormat( "x: %.2f", mp->pos.x );
         const char *py = TextFormat( "y: %.2f", mp->pos.y );
         const char *pz = TextFormat( "z: %.2f", mp->pos.z );
 
-        DrawTextEx( rm->baseFont, "Position:", (Vector2) { pos.x + marginLeft, pos.y + marginTop      }, 20, 0.0f, BLACK );
-        DrawTextEx( rm->baseFont, px,          (Vector2) { pos.x + marginLeft, pos.y + marginTop + 20 }, 20, 0.0f, MAROON );
-        DrawTextEx( rm->baseFont, py,          (Vector2) { pos.x + marginLeft, pos.y + marginTop + 40 }, 20, 0.0f, DARKGREEN );
-        DrawTextEx( rm->baseFont, pz,          (Vector2) { pos.x + marginLeft, pos.y + marginTop + 60 }, 20, 0.0f, DARKBLUE );
+        DrawTextEx( rm->baseFont, "Position:", (Vector2) { mpPropPos.x + mpPropMarginLeft, mpPropPos.y + mpPropMarginTop + 20 }, 20, 0.0f, BLACK );
+        DrawTextEx( rm->baseFont, px,          (Vector2) { mpPropPos.x + mpPropMarginLeft, mpPropPos.y + mpPropMarginTop + 40 }, 20, 0.0f, MAROON );
+        DrawTextEx( rm->baseFont, py,          (Vector2) { mpPropPos.x + mpPropMarginLeft, mpPropPos.y + mpPropMarginTop + 60 }, 20, 0.0f, DARKGREEN );
+        DrawTextEx( rm->baseFont, pz,          (Vector2) { mpPropPos.x + mpPropMarginLeft, mpPropPos.y + mpPropMarginTop + 80 }, 20, 0.0f, DARKBLUE );
 
 
-        const char *ax = TextFormat( "x: %.2f", mp->rot.x );
-        const char *ay = TextFormat( "y: %.2f", mp->rot.y );
-        const char *az = TextFormat( "z: %.2f", mp->rot.z );
+        const char *ax = TextFormat( "x: %.2fº", mp->rot.x );
+        const char *ay = TextFormat( "y: %.2fº", mp->rot.y );
+        const char *az = TextFormat( "z: %.2fº", mp->rot.z );
 
-        marginLeft += 100;
-        DrawTextEx( rm->baseFont, "Rotation:", (Vector2) { pos.x + marginLeft, pos.y + marginTop      }, 20, 0.0f, BLACK );
-        DrawTextEx( rm->baseFont, ax,          (Vector2) { pos.x + marginLeft, pos.y + marginTop + 20 }, 20, 0.0f, MAROON );
-        DrawTextEx( rm->baseFont, ay,          (Vector2) { pos.x + marginLeft, pos.y + marginTop + 40 }, 20, 0.0f, DARKGREEN );
-        DrawTextEx( rm->baseFont, az,          (Vector2) { pos.x + marginLeft, pos.y + marginTop + 60 }, 20, 0.0f, DARKBLUE );
+        mpPropMarginLeft += 100;
+        DrawTextEx( rm->baseFont, "Rotation:", (Vector2) { mpPropPos.x + mpPropMarginLeft, mpPropPos.y + mpPropMarginTop + 20 }, 20, 0.0f, BLACK );
+        DrawTextEx( rm->baseFont, ax,          (Vector2) { mpPropPos.x + mpPropMarginLeft, mpPropPos.y + mpPropMarginTop + 40 }, 20, 0.0f, MAROON );
+        DrawTextEx( rm->baseFont, ay,          (Vector2) { mpPropPos.x + mpPropMarginLeft, mpPropPos.y + mpPropMarginTop + 60 }, 20, 0.0f, DARKGREEN );
+        DrawTextEx( rm->baseFont, az,          (Vector2) { mpPropPos.x + mpPropMarginLeft, mpPropPos.y + mpPropMarginTop + 80 }, 20, 0.0f, DARKBLUE );
 
 
         const char *sx = TextFormat( "x: %.2f", mp->sca.x );
         const char *sy = TextFormat( "y: %.2f", mp->sca.y );
         const char *sz = TextFormat( "z: %.2f", mp->sca.z );
 
-        marginLeft += 100;
-        DrawTextEx( rm->baseFont, "Scale:",    (Vector2) { pos.x + marginLeft, pos.y + marginTop      }, 20, 0.0f, BLACK );
-        DrawTextEx( rm->baseFont, sx,          (Vector2) { pos.x + marginLeft, pos.y + marginTop + 20 }, 20, 0.0f, MAROON );
-        DrawTextEx( rm->baseFont, sy,          (Vector2) { pos.x + marginLeft, pos.y + marginTop + 40 }, 20, 0.0f, DARKGREEN );
-        DrawTextEx( rm->baseFont, sz,          (Vector2) { pos.x + marginLeft, pos.y + marginTop + 60 }, 20, 0.0f, DARKBLUE );
-        
+        mpPropMarginLeft += 100;
+        DrawTextEx( rm->baseFont, "Scale:",    (Vector2) { mpPropPos.x + mpPropMarginLeft, mpPropPos.y + mpPropMarginTop + 20 }, 20, 0.0f, BLACK );
+        DrawTextEx( rm->baseFont, sx,          (Vector2) { mpPropPos.x + mpPropMarginLeft, mpPropPos.y + mpPropMarginTop + 40 }, 20, 0.0f, MAROON );
+        DrawTextEx( rm->baseFont, sy,          (Vector2) { mpPropPos.x + mpPropMarginLeft, mpPropPos.y + mpPropMarginTop + 60 }, 20, 0.0f, DARKGREEN );
+        DrawTextEx( rm->baseFont, sz,          (Vector2) { mpPropPos.x + mpPropMarginLeft, mpPropPos.y + mpPropMarginTop + 80 }, 20, 0.0f, DARKBLUE );
+
     }
 
 }
 
-static void drawOptionsHud( void ) {
-
-    switch ( gizmoMode ) {
-        case GIZMO_MODE_TRANSLATE: DrawTextEx( rm->baseFont, "Gizmo Mode: TRANSLATE", (Vector2) { 10, 10 }, 20, 0.0f, BLACK ); break;
-        case GIZMO_MODE_ROTATE:    DrawTextEx( rm->baseFont, "Gizmo Mode: ROTATE",    (Vector2) { 10, 10 }, 20, 0.0f, BLACK ); break;
-        case GIZMO_MODE_SCALE:     DrawTextEx( rm->baseFont, "Gizmo Mode: SCALE",     (Vector2) { 10, 10 }, 20, 0.0f, BLACK ); break;
+static void deselectSelectedMapPiece( void ) {
+    if ( selectedMapPiece != NULL ) {
+        selectedMapPiece->gizmo.xAxis.selected = false;
+        selectedMapPiece->gizmo.zAxis.selected = false;
+        selectedMapPiece->gizmo.yAxis.selected = false;
+        selectedMapPiece->selected = false;
+        selectedMapPiece = NULL;
+        performingGizmoOperation = false;
     }
+}
+
+static MapPiece *getMapPieceFromRay( GameWorld *gw ) {
+
+    Camera *c = &gw->camera;
+    Ray ray = GetScreenToWorldRay( GetMousePosition(), *c );
+
+    int hits = 0;
+
+    for ( int i = 0; i < gw->mapPiecesCount; i++ ) {
+        MapPiece *mp = &gw->mapPieces[i];
+        RayCollision rc = GetRayCollisionBox( ray, mp->bb );
+        if ( rc.hit ) {
+            hits++;
+        }
+    }
+
+    if ( hits == 0 ) {
+        return NULL;
+    }
+
+    MapPieceDistance mpd[hits];
+    int k = 0;
+
+    for ( int i = 0; i < gw->mapPiecesCount; i++ ) {
+        MapPiece *mp = &gw->mapPieces[i];
+        RayCollision rc = GetRayCollisionBox( ray, mp->bb );
+        if ( rc.hit ) {
+            mpd[k].mapPiece = mp;
+            mpd[k].distance = rc.distance;
+            k++;
+        }
+    }
+
+    qsort( mpd, hits, sizeof( MapPieceDistance ), mapPieceDistanceComparator );
+
+    return mpd[0].mapPiece;
+
+}
+
+static int mapPieceDistanceComparator( const void *a, const void *b ) {
+
+    const MapPieceDistance *mpA = (const MapPieceDistance*) a;
+    const MapPieceDistance *mpB = (const MapPieceDistance*) b;
+
+    if ( mpA->distance < mpB->distance ) {
+        return -1;
+    } else if ( mpA->distance > mpB->distance ) {
+        return 1;
+    }
+
+    return 0;
+
+}
+
+static bool selectGizmoAxisFromSelectedMapPiece( MapPiece *mp, Camera *camera ) {
+
+    mp->gizmo.xAxis.selected = false;
+    mp->gizmo.zAxis.selected = false;
+    mp->gizmo.yAxis.selected = false;
+
+    switch ( checkCollisionMouseGizmo( &mp->gizmo, camera ) ) {
+        case GIZMO_AXIS_COLLISION_TYPE_NONE:
+            return false;
+            break;
+        case GIZMO_AXIS_COLLISION_TYPE_X:
+            mp->gizmo.xAxis.selected = true;
+            break;
+        case GIZMO_AXIS_COLLISION_TYPE_Y:
+            mp->gizmo.yAxis.selected = true;
+            break;
+        case GIZMO_AXIS_COLLISION_TYPE_Z:
+            mp->gizmo.zAxis.selected = true;
+            break;
+    }
+
+    return true;
+
+}
+
+static void performGizmoOperation( MapPiece *mp, Camera *camera, float delta ) {
+
+    const float translateAmount = 0.1f;
+    const float rotateAmount = 1.0f;
+    const float scaleAmount = 0.05f;
+
+    float xAmount = 0.0f;
+    float yAmount = 0.0f;
+    float zAmount = 0.0f;
+
+    int ud = yForGizmoOperation - GetMouseY();
+    yForGizmoOperation = GetMouseY();
+
+    if ( gizmoMode == EDITOR_MODE_TRANSLATE_MAP_PIECE ) {
+
+        if ( mp->gizmo.xAxis.selected ) {
+            xAmount = translateAmount * ud;
+        } else if ( mp->gizmo.yAxis.selected ) {
+            yAmount = translateAmount * ud;
+        } else if ( mp->gizmo.zAxis.selected ) {
+            zAmount = translateAmount * ud;
+        }
+
+        mp->pos.x += xAmount;
+        mp->pos.y += yAmount;
+        mp->pos.z += zAmount;
+
+        mp->bb.min.x += xAmount;
+        mp->bb.max.x += xAmount;
+        mp->bb.min.y += yAmount;
+        mp->bb.max.y += yAmount;
+        mp->bb.min.z += zAmount;
+        mp->bb.max.z += zAmount;
+
+    } else if ( gizmoMode == EDITOR_MODE_ROTATE_MAP_PIECE ) {
+
+        if ( mp->gizmo.xAxis.selected ) {
+            xAmount = rotateAmount * ud;
+        } else if ( mp->gizmo.yAxis.selected ) {
+            yAmount = rotateAmount * ud;
+        } else if ( mp->gizmo.zAxis.selected ) {
+            zAmount = rotateAmount * ud;
+        }
+
+        mp->rot.x += xAmount;
+        mp->rot.y += yAmount;
+        mp->rot.z += zAmount;
+
+    } else if ( gizmoMode == EDITOR_MODE_SCALE_MAP_PIECE ) {
+
+        if ( mp->gizmo.xAxis.selected ) {
+            xAmount = scaleAmount * ud;
+        } else if ( mp->gizmo.yAxis.selected ) {
+            yAmount = scaleAmount * ud;
+        } else if ( mp->gizmo.zAxis.selected ) {
+            zAmount = scaleAmount * ud;
+        }
+
+        mp->sca.x += xAmount;
+        mp->sca.y += yAmount;
+        mp->sca.z += zAmount;
+
+    }
+
+    mp->update( mp, camera, delta );
 
 }

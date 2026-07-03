@@ -11,8 +11,9 @@
 
 typedef struct GameWorld {
 
+    int maxMapPieces;
+    int mapPiecesCount;
     MapPiece *mapPieces;
-    int mapPieceCount;
 
     Camera3D camera;
     

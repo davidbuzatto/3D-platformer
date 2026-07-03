@@ -21,9 +21,10 @@ struct MapPiece {
 
     Gizmo gizmo;
     Vector3 gizmoOffset;
+    bool selected;
 
     void (*update)( MapPiece *mp, Camera3D *camera, float delta );
-    void (*draw)( MapPiece *mp, bool drawDebugInfo );
+    void (*draw)( MapPiece *mp );
 
 };
 
