@@ -289,25 +289,21 @@ void drawGameWorld( GameWorld *gw ) {
 }
 
 static void updateCamera( Camera *camera, float delta ) {
+    
+    if ( IsKeyDown( KEY_UP ) ) {
+        camera->position.y += cameraSpeed * delta;
+    }
 
-    if ( selectedMapPiece == NULL ) {
+    if ( IsKeyDown( KEY_DOWN ) ) {
+        camera->position.y -= cameraSpeed * delta;
+    }
 
-        if ( IsKeyDown( KEY_UP ) ) {
-            camera->position.y += cameraSpeed * delta;
-        }
+    if ( IsKeyDown( KEY_LEFT ) ) {
+        cameraAngle += cameraAngleSpeed * delta;
+    }
 
-        if ( IsKeyDown( KEY_DOWN ) ) {
-            camera->position.y -= cameraSpeed * delta;
-        }
-
-        if ( IsKeyDown( KEY_LEFT ) ) {
-            cameraAngle += cameraAngleSpeed * delta;
-        }
-
-        if ( IsKeyDown( KEY_RIGHT ) ) {
-            cameraAngle -= cameraAngleSpeed * delta;
-        }
-
+    if ( IsKeyDown( KEY_RIGHT ) ) {
+        cameraAngle -= cameraAngleSpeed * delta;
     }
 
     float m = -GetMouseWheelMove();
