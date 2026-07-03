@@ -67,10 +67,10 @@ GameWorld *createGameWorld( void ) {
 
     GameWorld *gw = (GameWorld*) malloc( sizeof( GameWorld ) );
 
-    int rows = 7;
-    int cols = 5;
-    /*int rows = 0;
-    int cols = 0;*/
+    /*int rows = 7;
+    int cols = 5;*/
+    int rows = 0;
+    int cols = 0;
     gw->maxMapPieces = 100;
     gw->mapPiecesCount = 0;
     gw->mapPieces = (MapPiece*) malloc( sizeof( MapPiece ) * gw->maxMapPieces );
@@ -174,36 +174,6 @@ void updateGameWorld( GameWorld *gw, float delta ) {
         gw->mapPieces[i].update( &gw->mapPieces[i], camera, delta );
     }
 
-    if ( IsMouseButtonPressed( MOUSE_BUTTON_LEFT ) ) {
-
-        if ( editorMode == EDITOR_MODE_SELECT_MAP_PIECE ) {
-
-
-
-        } else if ( editorMode == EDITOR_MODE_ADD_MAP_PIECE ) {
-
-            Ray ray = GetMouseRay( GetMousePosition(), *camera );
-            RayCollision rc = GetRayCollisionBox( 
-                ray, 
-                (BoundingBox) {
-                    .min = { -10000.0f, 0.0f, -10000.0f },
-                    .max = {  10000.0f, 0.0f,  10000.0f }
-                }
-            );
-
-            if ( rc.hit && gw->mapPiecesCount < gw->maxMapPieces ) {
-                initMapPiece( 
-                    &gw->mapPieces[gw->mapPiecesCount],
-                    rc.point,
-                    rm->blockGrassModel
-                );
-                gw->mapPiecesCount++;
-            }
-
-        }
-
-    }
-
     if ( editorMode == EDITOR_MODE_SELECT_MAP_PIECE ) {
 
         if ( IsMouseButtonPressed( MOUSE_BUTTON_LEFT ) ) {
@@ -217,7 +187,6 @@ void updateGameWorld( GameWorld *gw, float delta ) {
             }
 
             // priority 2: select a map piece
-            // TODO: select the nearest one!!!
             if ( !performingGizmoOperation ) {
 
                 MapPiece *mp = getMapPieceFromRay( gw );

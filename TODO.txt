@@ -1,6 +1,7 @@
 Needs to reposition Gizmo using model scale;
 Check model center do apply rotation and scaling;
 Change how transformations responds to the mouse movement;
+Remove map element;
 
 Improve camera controls (orbital);
     Enable to set center (like a empty player)
