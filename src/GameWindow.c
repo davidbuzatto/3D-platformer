@@ -92,6 +92,7 @@ void initGameWindow( GameWindow *gameWindow ) {
             SetConfigFlags( FLAG_WINDOW_ALWAYS_RUN );
         }
 
+        SetTraceLogLevel( LOG_WARNING );
         InitWindow( gameWindow->width, gameWindow->height, gameWindow->title );
 
         if ( gameWindow->initAudio ) {

@@ -1,2 +1,4 @@
 /build/
 **/*.exe
+/support/ModelsPreviewGenerator/nbproject/private/
+/support/ModelsPreviewGenerator/build/

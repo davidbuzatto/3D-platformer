@@ -24,6 +24,7 @@
 typedef enum {
     EDITOR_MODE_SELECT_MAP_PIECE,
     EDITOR_MODE_ADD_MAP_PIECE,
+    EDITOR_MODE_SELECT_MAP_PIECE_MODEL_TYPE,
     EDITOR_MODE_TRANSLATE_MAP_PIECE,
     EDITOR_MODE_ROTATE_MAP_PIECE,
     EDITOR_MODE_SCALE_MAP_PIECE,
@@ -55,6 +56,18 @@ static int yForGizmoOperation = 0;
 
 static MapPiece *selectedMapPiece = NULL;
 
+// variables for EDITOR_MODE_SELECT_MAP_PIECE_MODEL_TYPE
+static MapPieceModelType selectedMapPieceModel = MODEL_TYPE_BLOCK_GRASS;
+static Rectangle mouseHoverMapPieceModelRect = { 0, 0, 0, 0 };
+static int targetWSelect;
+static int targetHSelect;
+static int piecesPerLineSelect;
+static int pieceSizeSelect;
+static int startXSelect;
+static int startYSelect;
+static int marginSelect;
+static int spacingSelect;
+
 static EditorMode editorMode = EDITOR_MODE_SELECT_MAP_PIECE;
 static EditorMode gizmoMode = EDITOR_MODE_TRANSLATE_MAP_PIECE;
 
@@ -78,13 +91,13 @@ GameWorld *createGameWorld( void ) {
     float mapPieceSpacing = 0.2f;
 
     Model models[7] = {
-        rm->blockGrassLargeTallModel,
-        rm->blockGrassLargeModel,
-        rm->blockGrassLongModel,
-        rm->blockGrassCurveModel,
-        rm->blockGrassModel,
-        rm->blockGrassCornerModel,
-        rm->blockGrassEdgeModel,
+        rm->mapPieceModelAtlas[MODEL_TYPE_BLOCK_GRASS_LARGE_TALL],
+        rm->mapPieceModelAtlas[MODEL_TYPE_BLOCK_GRASS_LARGE],
+        rm->mapPieceModelAtlas[MODEL_TYPE_BLOCK_GRASS_LONG],
+        rm->mapPieceModelAtlas[MODEL_TYPE_BLOCK_GRASS_CURVE],
+        rm->mapPieceModelAtlas[MODEL_TYPE_BLOCK_GRASS],
+        rm->mapPieceModelAtlas[MODEL_TYPE_BLOCK_GRASS_CORNER],
+        rm->mapPieceModelAtlas[MODEL_TYPE_BLOCK_GRASS_EDGE]
     };
 
     float startPosZ = 0;
@@ -145,6 +158,17 @@ GameWorld *createGameWorld( void ) {
         .target = (Vector3) { 0 },
         .up = (Vector3) { 0, 1, 0 }
     };
+
+
+    // variables for EDITOR_MODE_SELECT_MAP_PIECE_MODEL_TYPE
+    targetWSelect = rm->mapPieceModelAtlasPreviewTexture.width / 2;
+    targetHSelect = rm->mapPieceModelAtlasPreviewTexture.height / 2;
+    piecesPerLineSelect = 15;
+    pieceSizeSelect = 32;
+    startXSelect = GetScreenWidth() / 2 - targetWSelect / 2;
+    startYSelect = 55;
+    marginSelect = 5;
+    spacingSelect = 3;
 
     return gw;
 
@@ -244,9 +268,36 @@ void updateGameWorld( GameWorld *gw, float delta ) {
                 initMapPiece( 
                     &gw->mapPieces[gw->mapPiecesCount],
                     rc.point,
-                    rm->blockGrassModel   // TODO: allow model selection
+                    rm->mapPieceModelAtlas[selectedMapPieceModel]   // TODO: allow model selection
                 );
                 gw->mapPiecesCount++;
+            }
+
+        }
+
+    } else if ( editorMode == EDITOR_MODE_SELECT_MAP_PIECE_MODEL_TYPE ) {
+
+        int mouseX = GetMouseX();
+        int mouseY = GetMouseY();
+
+        if ( mouseX >= startXSelect + marginSelect && mouseX <= startXSelect + targetWSelect - marginSelect &&
+             mouseY >= startYSelect + marginSelect && mouseY <= startYSelect + targetHSelect - marginSelect ) {
+            
+            int offsetX = mouseX - ( startXSelect + marginSelect );
+            int offsetY = mouseY - ( startYSelect + marginSelect );
+
+            int col = offsetX / ( mouseHoverMapPieceModelRect.width + spacingSelect );
+            int row = offsetY / ( mouseHoverMapPieceModelRect.height + spacingSelect );
+
+            mouseHoverMapPieceModelRect.x = startXSelect + marginSelect + col * ( mouseHoverMapPieceModelRect.width + spacingSelect );
+            mouseHoverMapPieceModelRect.y = startYSelect + marginSelect + row * ( mouseHoverMapPieceModelRect.width + spacingSelect );
+            mouseHoverMapPieceModelRect.width = mouseHoverMapPieceModelRect.height = pieceSizeSelect;
+
+            if ( IsMouseButtonPressed( MOUSE_BUTTON_LEFT ) ) {
+                int modelPos = row * piecesPerLineSelect + col;
+                if ( modelPos < rm->mapPieceModelAtlasCount ) {
+                    selectedMapPieceModel = row * piecesPerLineSelect + col;
+                }
             }
 
         }
@@ -260,6 +311,11 @@ void updateGameWorld( GameWorld *gw, float delta ) {
 
     if ( IsKeyPressed( KEY_F2 ) ) {
         editorMode = EDITOR_MODE_ADD_MAP_PIECE;
+        deselectSelectedMapPiece();
+    }
+
+    if ( IsKeyPressed( KEY_F3 ) ) {
+        editorMode = EDITOR_MODE_SELECT_MAP_PIECE_MODEL_TYPE;
         deselectSelectedMapPiece();
     }
 
@@ -321,14 +377,14 @@ static void drawEditorHud( void ) {
     Vector2 pos = { 10, 10 };
 
     DrawRectangleRounded(
-        (Rectangle) { pos.x, pos.y, 300, 40 },
+        (Rectangle) { pos.x, pos.y, GetScreenWidth() - marginLeft * 2, 40 },
         0.2f,
         10,
         Fade( WHITE, 0.7f )
     );
 
     DrawRectangleRoundedLinesEx(
-        (Rectangle) { pos.x, pos.y, 300, 40 },
+        (Rectangle) { pos.x, pos.y, GetScreenWidth() - marginLeft * 2, 40 },
         0.2f,
         10,
         2.0f,
@@ -348,6 +404,14 @@ static void drawEditorHud( void ) {
             DrawTextEx( 
                 rm->baseFont, 
                 "Editor Mode: ADD",
+                (Vector2) { pos.x + marginLeft, pos.y + marginTop },
+                20, 0.0f, BLACK
+            );
+            break;
+        case EDITOR_MODE_SELECT_MAP_PIECE_MODEL_TYPE:
+            DrawTextEx( 
+                rm->baseFont, 
+                "Editor Mode: SELECT MAP PIECE MODEL TYPE",
                 (Vector2) { pos.x + marginLeft, pos.y + marginTop },
                 20, 0.0f, BLACK
             );
@@ -439,6 +503,32 @@ static void drawEditorHud( void ) {
         DrawTextEx( rm->baseFont, sx,          (Vector2) { mpPropPos.x + mpPropMarginLeft, mpPropPos.y + mpPropMarginTop + 40 }, 20, 0.0f, MAROON );
         DrawTextEx( rm->baseFont, sy,          (Vector2) { mpPropPos.x + mpPropMarginLeft, mpPropPos.y + mpPropMarginTop + 60 }, 20, 0.0f, DARKGREEN );
         DrawTextEx( rm->baseFont, sz,          (Vector2) { mpPropPos.x + mpPropMarginLeft, mpPropPos.y + mpPropMarginTop + 80 }, 20, 0.0f, DARKBLUE );
+
+    }
+
+    if ( editorMode == EDITOR_MODE_SELECT_MAP_PIECE_MODEL_TYPE ) {
+
+        DrawTexturePro( 
+            rm->mapPieceModelAtlasPreviewTexture,
+            (Rectangle) { 0, 0, rm->mapPieceModelAtlasPreviewTexture.width, rm->mapPieceModelAtlasPreviewTexture.height },
+            (Rectangle) { GetScreenWidth() / 2 - targetWSelect / 2, startYSelect, targetWSelect, targetHSelect },
+            (Vector2) { 0 },
+            0,
+            WHITE
+        );
+
+        int pieceModelPos = (int) selectedMapPieceModel;
+        int row = pieceModelPos / piecesPerLineSelect;
+        int col = pieceModelPos % piecesPerLineSelect;
+
+        Rectangle selectedMapPieceModelRect = { 
+            startXSelect + marginSelect + ( pieceSizeSelect + spacingSelect ) * col, 
+            startYSelect + marginSelect + ( pieceSizeSelect + spacingSelect ) * row, 
+            pieceSizeSelect, 
+            pieceSizeSelect
+        };
+        DrawRectangleLinesEx( selectedMapPieceModelRect, 2.0f, BLUE );
+        DrawRectangleLinesEx( mouseHoverMapPieceModelRect, 2.0f, WHITE );
 
     }
 
