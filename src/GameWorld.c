@@ -42,9 +42,9 @@ static void drawEditorHud( void );
 static void deselectSelectedMapPiece( void );
 static MapPiece *getMapPieceFromRay( GameWorld *gw );
 static RayCollision getAddRayCollisionFromRay( GameWorld *gw );
+static bool getNearestMapPieceHit( GameWorld *gw, Ray ray, MapPiece **outMp, RayCollision *outRc );
 static void addMapPiece( GameWorld *gw );
 static void removeMapPiece( MapPiece *mp, GameWorld *gw );
-static int mapPieceDistanceComparator( const void *a, const void *b );
 static bool selectGizmoAxisFromSelectedMapPiece( MapPiece *mp, Camera *camera );
 static void performGizmoOperation( MapPiece *mp, Camera *camera, float delta );
 
@@ -276,11 +276,11 @@ void updateGameWorld( GameWorld *gw, float delta ) {
             int offsetX = mouseX - ( startXSelect + marginSelect );
             int offsetY = mouseY - ( startYSelect + marginSelect );
 
-            int col = offsetX / ( mouseHoverMapPieceModelRect.width + spacingSelect );
-            int row = offsetY / ( mouseHoverMapPieceModelRect.height + spacingSelect );
+            int col = offsetX / ( pieceSizeSelect + spacingSelect );
+            int row = offsetY / ( pieceSizeSelect + spacingSelect );
 
-            mouseHoverMapPieceModelRect.x = startXSelect + marginSelect + col * ( mouseHoverMapPieceModelRect.width + spacingSelect );
-            mouseHoverMapPieceModelRect.y = startYSelect + marginSelect + row * ( mouseHoverMapPieceModelRect.width + spacingSelect );
+            mouseHoverMapPieceModelRect.x = startXSelect + marginSelect + col * ( pieceSizeSelect + spacingSelect );
+            mouseHoverMapPieceModelRect.y = startYSelect + marginSelect + row * ( pieceSizeSelect + spacingSelect );
             mouseHoverMapPieceModelRect.width = mouseHoverMapPieceModelRect.height = pieceSizeSelect;
 
             if ( IsMouseButtonPressed( MOUSE_BUTTON_LEFT ) ) {
@@ -536,89 +536,52 @@ static void deselectSelectedMapPiece( void ) {
 }
 
 static MapPiece *getMapPieceFromRay( GameWorld *gw ) {
-
-    Camera *c = &gw->camera;
-    Ray ray = GetScreenToWorldRay( GetMousePosition(), *c );
-
-    int hits = 0;
-
-    for ( int i = 0; i < gw->mapPiecesCount; i++ ) {
-        MapPiece *mp = &gw->mapPieces[i];
-        RayCollision rc = GetRayCollisionBox( ray, mp->bb );
-        if ( rc.hit ) {
-            hits++;
-        }
-    }
-
-    if ( hits == 0 ) {
-        return NULL;
-    }
-
-    MapPieceDistance mpd[hits];
-    int k = 0;
-
-    for ( int i = 0; i < gw->mapPiecesCount; i++ ) {
-        MapPiece *mp = &gw->mapPieces[i];
-        RayCollision rc = GetRayCollisionBox( ray, mp->bb );
-        if ( rc.hit ) {
-            mpd[k].mapPiece = mp;
-            mpd[k].rc = rc;
-            k++;
-        }
-    }
-
-    qsort( mpd, hits, sizeof( MapPieceDistance ), mapPieceDistanceComparator );
-
-    return mpd[0].mapPiece;
-
+    Ray ray = GetScreenToWorldRay( GetMousePosition(), gw->camera );
+    MapPiece *mp = NULL;
+    getNearestMapPieceHit( gw, ray, &mp, NULL );
+    return mp;
 }
 
 static RayCollision getAddRayCollisionFromRay( GameWorld *gw ) {
 
-    Camera *c = &gw->camera;
-    Ray ray = GetScreenToWorldRay( GetMousePosition(), *c );
+    Ray ray = GetScreenToWorldRay( GetMousePosition(), gw->camera );
+    RayCollision rc;
 
-    int hits = 0;
-
-    for ( int i = 0; i < gw->mapPiecesCount; i++ ) {
-        MapPiece *mp = &gw->mapPieces[i];
-        RayCollision rc = GetRayCollisionBox( ray, mp->bb );
-        if ( rc.hit ) {
-            hits++;
-        }
-    }
-
-    if ( hits == 0 ) {
-
-        // dit it hit the grid?
-        RayCollision rc = GetRayCollisionBox( 
-            ray, 
-            (BoundingBox) {
-                .min = { -10000.0f, 0.0f, -10000.0f },
-                .max = {  10000.0f, 0.0f,  10000.0f }
-            }
-        );
-
+    if ( getNearestMapPieceHit( gw, ray, NULL, &rc ) ) {
         return rc;
-
     }
 
-    MapPieceDistance mpd[hits];
-    int k = 0;
+    // does not hit any piece, falls back to the grid (y = 0)
+    return GetRayCollisionBox( 
+        ray, 
+        (BoundingBox) {
+            .min = { -10000.0f, 0.0f, -10000.0f },
+            .max = {  10000.0f, 0.0f,  10000.0f }
+        }
+    );
+
+}
+
+static bool getNearestMapPieceHit( GameWorld *gw, Ray ray, MapPiece **outMp, RayCollision *outRc ) {
+
+    MapPiece *nearestMp = NULL;
+    RayCollision nearestRc = { 0 };
+    float nearestDistance = INFINITY;
 
     for ( int i = 0; i < gw->mapPiecesCount; i++ ) {
         MapPiece *mp = &gw->mapPieces[i];
         RayCollision rc = GetRayCollisionBox( ray, mp->bb );
-        if ( rc.hit ) {
-            mpd[k].mapPiece = mp;
-            mpd[k].rc = rc;
-            k++;
+        if ( rc.hit && rc.distance < nearestDistance ) {
+            nearestDistance = rc.distance;
+            nearestMp = mp;
+            nearestRc = rc;
         }
     }
 
-    qsort( mpd, hits, sizeof( MapPieceDistance ), mapPieceDistanceComparator );
+    if ( outMp != NULL ) *outMp = nearestMp;
+    if ( outRc != NULL ) *outRc = nearestRc;
 
-    return mpd[0].rc;
+    return nearestMp != NULL;
 
 }
 
@@ -656,21 +619,6 @@ static void removeMapPiece( MapPiece *mp, GameWorld *gw ) {
         }
         gw->mapPiecesCount--;
     }
-
-}
-
-static int mapPieceDistanceComparator( const void *a, const void *b ) {
-
-    const MapPieceDistance *mpA = (const MapPieceDistance*) a;
-    const MapPieceDistance *mpB = (const MapPieceDistance*) b;
-
-    if ( mpA->rc.distance < mpB->rc.distance ) {
-        return -1;
-    } else if ( mpA->rc.distance > mpB->rc.distance ) {
-        return 1;
-    }
-
-    return 0;
 
 }
 
