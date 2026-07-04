@@ -19,7 +19,9 @@ static void prepareMapPieceModelAtlas( void );
 
 void loadResourcesResourceManager( void ) {
 
+    SetTraceLogLevel( LOG_WARNING );
     prepareMapPieceModelAtlas();
+    SetTraceLogLevel( LOG_ALL );
 
     _rm.baseFont = LoadFontEx( "resources/fonts/space-mono/SpaceMono-Bold.ttf", 20, NULL, 250 );
 
@@ -34,10 +36,12 @@ void loadResourcesResourceManager( void ) {
 
 void unloadResourcesResourceManager( void ) {
 
+    SetTraceLogLevel( LOG_WARNING );
     for ( int i = 0; i < _rm.mapPieceModelAtlasCount; i++ ) {
         UnloadModel( _rm.mapPieceModelAtlas[i] );
     }
     free( _rm.mapPieceModelAtlas );
+    SetTraceLogLevel( LOG_ALL );
 
     UnloadFont( _rm.baseFont );
     UnloadTexture( _rm.mapPieceModelAtlasPreviewTexture );

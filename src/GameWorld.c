@@ -32,7 +32,7 @@ typedef enum {
 
 typedef struct {
     MapPiece *mapPiece;
-    float distance;
+    RayCollision rc;
 } MapPieceDistance;
 
 static void updateCamera( Camera *camera, float delta );
@@ -40,6 +40,7 @@ static void drawEditorHud( void );
 
 static void deselectSelectedMapPiece( void );
 static MapPiece *getMapPieceFromRay( GameWorld *gw );
+static RayCollision getAddRayCollisionFromRay( GameWorld *gw );
 static int mapPieceDistanceComparator( const void *a, const void *b );
 static bool selectGizmoAxisFromSelectedMapPiece( MapPiece *mp, Camera *camera );
 static void performGizmoOperation( MapPiece *mp, Camera *camera, float delta );
@@ -84,7 +85,7 @@ GameWorld *createGameWorld( void ) {
     int cols = 5;*/
     int rows = 0;
     int cols = 0;
-    gw->maxMapPieces = 100;
+    gw->maxMapPieces = 1000;
     gw->mapPiecesCount = 0;
     gw->mapPieces = (MapPiece*) malloc( sizeof( MapPiece ) * gw->maxMapPieces );
 
@@ -255,20 +256,13 @@ void updateGameWorld( GameWorld *gw, float delta ) {
 
         if ( IsMouseButtonPressed( MOUSE_BUTTON_LEFT ) ) {
 
-            Ray ray = GetMouseRay( GetMousePosition(), *camera );
-            RayCollision rc = GetRayCollisionBox( 
-                ray, 
-                (BoundingBox) {
-                    .min = { -10000.0f, 0.0f, -10000.0f },
-                    .max = {  10000.0f, 0.0f,  10000.0f }
-                }
-            );
+            RayCollision rc = getAddRayCollisionFromRay( gw );
 
             if ( rc.hit && gw->mapPiecesCount < gw->maxMapPieces ) {
                 initMapPiece( 
                     &gw->mapPieces[gw->mapPiecesCount],
                     rc.point,
-                    rm->mapPieceModelAtlas[selectedMapPieceModel]   // TODO: allow model selection
+                    rm->mapPieceModelAtlas[selectedMapPieceModel]
                 );
                 gw->mapPiecesCount++;
             }
@@ -572,7 +566,7 @@ static MapPiece *getMapPieceFromRay( GameWorld *gw ) {
         RayCollision rc = GetRayCollisionBox( ray, mp->bb );
         if ( rc.hit ) {
             mpd[k].mapPiece = mp;
-            mpd[k].distance = rc.distance;
+            mpd[k].rc = rc;
             k++;
         }
     }
@@ -583,14 +577,63 @@ static MapPiece *getMapPieceFromRay( GameWorld *gw ) {
 
 }
 
+static RayCollision getAddRayCollisionFromRay( GameWorld *gw ) {
+
+    Camera *c = &gw->camera;
+    Ray ray = GetScreenToWorldRay( GetMousePosition(), *c );
+
+    int hits = 0;
+
+    for ( int i = 0; i < gw->mapPiecesCount; i++ ) {
+        MapPiece *mp = &gw->mapPieces[i];
+        RayCollision rc = GetRayCollisionBox( ray, mp->bb );
+        if ( rc.hit ) {
+            hits++;
+        }
+    }
+
+    if ( hits == 0 ) {
+
+        // dit it hit the grid?
+        RayCollision rc = GetRayCollisionBox( 
+            ray, 
+            (BoundingBox) {
+                .min = { -10000.0f, 0.0f, -10000.0f },
+                .max = {  10000.0f, 0.0f,  10000.0f }
+            }
+        );
+
+        return rc;
+
+    }
+
+    MapPieceDistance mpd[hits];
+    int k = 0;
+
+    for ( int i = 0; i < gw->mapPiecesCount; i++ ) {
+        MapPiece *mp = &gw->mapPieces[i];
+        RayCollision rc = GetRayCollisionBox( ray, mp->bb );
+        if ( rc.hit ) {
+            mpd[k].mapPiece = mp;
+            mpd[k].rc = rc;
+            k++;
+        }
+    }
+
+    qsort( mpd, hits, sizeof( MapPieceDistance ), mapPieceDistanceComparator );
+
+    return mpd[0].rc;
+
+}
+
 static int mapPieceDistanceComparator( const void *a, const void *b ) {
 
     const MapPieceDistance *mpA = (const MapPieceDistance*) a;
     const MapPieceDistance *mpB = (const MapPieceDistance*) b;
 
-    if ( mpA->distance < mpB->distance ) {
+    if ( mpA->rc.distance < mpB->rc.distance ) {
         return -1;
-    } else if ( mpA->distance > mpB->distance ) {
+    } else if ( mpA->rc.distance > mpB->rc.distance ) {
         return 1;
     }
 
