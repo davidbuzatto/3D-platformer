@@ -104,22 +104,21 @@ GameWorld *createGameWorld( void ) {
 
     float mapPieceSpacing = 0.2f;
 
-    Model models[7] = {
-        rm->mapPieceModelAtlas[MODEL_TYPE_BLOCK_GRASS_LARGE_TALL],
-        rm->mapPieceModelAtlas[MODEL_TYPE_BLOCK_GRASS_LARGE],
-        rm->mapPieceModelAtlas[MODEL_TYPE_BLOCK_GRASS_LONG],
-        rm->mapPieceModelAtlas[MODEL_TYPE_BLOCK_GRASS_CURVE],
-        rm->mapPieceModelAtlas[MODEL_TYPE_BLOCK_GRASS],
-        rm->mapPieceModelAtlas[MODEL_TYPE_BLOCK_GRASS_CORNER],
-        rm->mapPieceModelAtlas[MODEL_TYPE_BLOCK_GRASS_EDGE]
+    MapPieceModelType modelTypes[7] = {
+        MODEL_TYPE_BLOCK_GRASS_LARGE_TALL,
+        MODEL_TYPE_BLOCK_GRASS_LARGE,
+        MODEL_TYPE_BLOCK_GRASS_LONG,
+        MODEL_TYPE_BLOCK_GRASS_CURVE,
+        MODEL_TYPE_BLOCK_GRASS,
+        MODEL_TYPE_BLOCK_GRASS_CORNER,
+        MODEL_TYPE_BLOCK_GRASS_EDGE
     };
 
     float startPosZ = 0;
 
     for ( int i = 0; i < rows; i++ ) {
 
-        Model baseModel = models[i];
-        BoundingBox bb = GetModelBoundingBox( baseModel );
+        BoundingBox bb = GetModelBoundingBox( rm->mapPieceModelAtlas[modelTypes[i]] );
         float mapPieceSizeZ = bb.max.z - bb.min.z;
 
         startPosZ -= mapPieceSizeZ;
@@ -134,8 +133,7 @@ GameWorld *createGameWorld( void ) {
 
     for ( int i = 0; i < rows; i++ ) {
 
-        Model baseModel = models[i];
-        BoundingBox bb = GetModelBoundingBox( baseModel );
+        BoundingBox bb = GetModelBoundingBox( rm->mapPieceModelAtlas[modelTypes[i]] );
 
         float mapPieceSizeX = bb.max.x - bb.min.x;
         float mapPieceSizeZ = bb.max.z - bb.min.z;
@@ -154,7 +152,7 @@ GameWorld *createGameWorld( void ) {
                     0,
                     rowCenter
                 },
-                baseModel
+                modelTypes[i]
             );
 
             gw->mapPiecesCount++;
@@ -627,7 +625,7 @@ static void addMapPiece( GameWorld *gw ) {
         initMapPiece( 
             &gw->mapPieces[gw->mapPiecesCount],
             rc.point,
-            rm->mapPieceModelAtlas[selectedMapPieceModel]
+            selectedMapPieceModel
         );
         gw->mapPiecesCount++;
     }

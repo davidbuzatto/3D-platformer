@@ -173,6 +173,7 @@ struct MapPiece {
 
     Color color;
 
+    MapPieceModelType modelType;
     Model model;
     BoundingBox bb;
 
@@ -185,4 +186,4 @@ struct MapPiece {
 
 };
 
-void initMapPiece( MapPiece *mp, Vector3 pos, Model model );
+void initMapPiece( MapPiece *mp, Vector3 pos, MapPieceModelType modelType );

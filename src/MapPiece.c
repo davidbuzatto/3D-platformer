@@ -14,14 +14,15 @@
 static void update( MapPiece *mp, Camera3D *camera, float delta );
 static void draw( MapPiece *mp );
 
-void initMapPiece( MapPiece *mp, Vector3 pos, Model model ) {
+void initMapPiece( MapPiece *mp, Vector3 pos, MapPieceModelType modelType ) {
     
     mp->pos = pos;
     mp->rot = (Vector3) { 0.0f, 0.0f, 0.0f };
     mp->sca = (Vector3) { 1.0f, 1.0f, 1.0f };
 
     mp->color = BLUE;
-    mp->model = model;
+    mp->modelType = modelType;
+    mp->model = rm->mapPieceModelAtlas[modelType];
     mp->bb = GetModelBoundingBox( mp->model );
     mp->bb.min = Vector3Add( mp->bb.min, mp->pos );
     mp->bb.max = Vector3Add( mp->bb.max, mp->pos );
