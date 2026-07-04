@@ -1,5 +1,10 @@
-Position of map piece selector does not correspond to window resize.
-Multiselection;
-Scale for all axis;
-Improve gizmo operations (by plane)?
+Improve gizmo operations:
+    Translate by planes (XY, XZ and YZ);
+    Scale by plane (XY, XZ and YZ);
+    Scale for all axis;
+    Transforms with fixed ticks (rounded, maybe 0.05 world units, pressing down SHIFT maybe?);
+    Multiselection for translations;
+    Change gizmo appearance for each operation;
+Tooltips for map piece model type selecion.
 Check model center do apply rotation and scaling?
+

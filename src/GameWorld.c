@@ -74,7 +74,7 @@ static float gizmoDragStartT = 0.0f;
 static MapPiece *selectedMapPiece = NULL;
 
 // variables for EDITOR_MODE_SELECT_MAP_PIECE_MODEL_TYPE
-static MapPieceModelType selectedMapPieceModel = MODEL_TYPE_BLOCK_GRASS;
+static MapPieceModelType selectedMapPieceModelType = MODEL_TYPE_BLOCK_GRASS;
 static Rectangle mouseHoverMapPieceModelRect = { 0, 0, 0, 0 };
 static int targetWSelect;
 static int targetHSelect;
@@ -181,7 +181,6 @@ GameWorld *createGameWorld( void ) {
     targetHSelect = rm->mapPieceModelAtlasPreviewTexture.height / 2;
     piecesPerLineSelect = 15;
     pieceSizeSelect = 32;
-    startXSelect = GetScreenWidth() / 2 - targetWSelect / 2;
     startYSelect = 55;
     marginSelect = 5;
     spacingSelect = 3;
@@ -280,7 +279,8 @@ void updateGameWorld( GameWorld *gw, float delta ) {
 
         int mouseX = GetMouseX();
         int mouseY = GetMouseY();
-
+        startXSelect = GetScreenWidth() / 2 - targetWSelect / 2;
+        
         if ( mouseX >= startXSelect + marginSelect && mouseX <= startXSelect + targetWSelect - marginSelect &&
              mouseY >= startYSelect + marginSelect && mouseY <= startYSelect + targetHSelect - marginSelect ) {
             
@@ -297,7 +297,7 @@ void updateGameWorld( GameWorld *gw, float delta ) {
             if ( IsMouseButtonPressed( MOUSE_BUTTON_LEFT ) ) {
                 int modelPos = row * piecesPerLineSelect + col;
                 if ( modelPos < rm->mapPieceModelAtlasCount ) {
-                    selectedMapPieceModel = row * piecesPerLineSelect + col;
+                    selectedMapPieceModelType = row * piecesPerLineSelect + col;
                 }
             }
 
@@ -338,7 +338,7 @@ void updateGameWorld( GameWorld *gw, float delta ) {
 void drawGameWorld( GameWorld *gw ) {
 
     BeginDrawing();
-    ClearBackground( SKYBLUE );
+    ClearBackground( RAYWHITE );
 
     BeginMode3D( gw->camera );
     for ( int i = 0; i < gw->mapPiecesCount; i++ ) {
@@ -553,7 +553,7 @@ static void drawEditorHud( void ) {
             WHITE
         );
 
-        int pieceModelPos = (int) selectedMapPieceModel;
+        int pieceModelPos = (int) selectedMapPieceModelType;
         int row = pieceModelPos / piecesPerLineSelect;
         int col = pieceModelPos % piecesPerLineSelect;
 
@@ -639,7 +639,7 @@ static void addMapPiece( GameWorld *gw ) {
         initMapPiece( 
             &gw->mapPieces[gw->mapPiecesCount],
             rc.point,
-            selectedMapPieceModel
+            selectedMapPieceModelType
         );
         gw->mapPiecesCount++;
     }
