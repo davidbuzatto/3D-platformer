@@ -39,3 +39,9 @@ void loadResourcesResourceManager( void );
  * @brief Unload global game resources.
  */
 void unloadResourcesResourceManager( void );
+
+/**
+ * @brief Get a human-readable name for a map piece model type, used for
+ * tooltips in the model picker.
+ */
+const char *getMapPieceModelTypeName( MapPieceModelType type );
