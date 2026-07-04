@@ -16,9 +16,10 @@
 //#include "raylib/raygui.h"       // other compilation units must only include
 //#undef RAYGUI_IMPLEMENTATION     // raygui.h
 
-#include "MapPiece.h"
 #include "GameWorld.h"
 #include "Gizmo.h"
+#include "Macros.h"
+#include "MapPiece.h"
 #include "ResourceManager.h"
 
 typedef enum {
@@ -41,6 +42,8 @@ static void drawEditorHud( void );
 static void deselectSelectedMapPiece( void );
 static MapPiece *getMapPieceFromRay( GameWorld *gw );
 static RayCollision getAddRayCollisionFromRay( GameWorld *gw );
+static void addMapPiece( GameWorld *gw );
+static void removeMapPiece( MapPiece *mp, GameWorld *gw );
 static int mapPieceDistanceComparator( const void *a, const void *b );
 static bool selectGizmoAxisFromSelectedMapPiece( MapPiece *mp, Camera *camera );
 static void performGizmoOperation( MapPiece *mp, Camera *camera, float delta );
@@ -244,6 +247,10 @@ void updateGameWorld( GameWorld *gw, float delta ) {
             selectedMapPiece->sca = (Vector3) { 1.0f, 1.0f, 1.0f };
         }
 
+        if ( IsKeyPressed( KEY_DELETE ) && selectedMapPiece != NULL ) {
+            removeMapPiece( selectedMapPiece, gw );
+        }
+
         if ( IsKeyPressed( KEY_ESCAPE ) ) {
             deselectSelectedMapPiece();
         }
@@ -255,18 +262,7 @@ void updateGameWorld( GameWorld *gw, float delta ) {
     } else if ( editorMode == EDITOR_MODE_ADD_MAP_PIECE ) {
 
         if ( IsMouseButtonPressed( MOUSE_BUTTON_LEFT ) ) {
-
-            RayCollision rc = getAddRayCollisionFromRay( gw );
-
-            if ( rc.hit && gw->mapPiecesCount < gw->maxMapPieces ) {
-                initMapPiece( 
-                    &gw->mapPieces[gw->mapPiecesCount],
-                    rc.point,
-                    rm->mapPieceModelAtlas[selectedMapPieceModel]
-                );
-                gw->mapPiecesCount++;
-            }
-
+            addMapPiece( gw );
         }
 
     } else if ( editorMode == EDITOR_MODE_SELECT_MAP_PIECE_MODEL_TYPE ) {
@@ -623,6 +619,43 @@ static RayCollision getAddRayCollisionFromRay( GameWorld *gw ) {
     qsort( mpd, hits, sizeof( MapPieceDistance ), mapPieceDistanceComparator );
 
     return mpd[0].rc;
+
+}
+
+static void addMapPiece( GameWorld *gw ) {
+
+    RayCollision rc = getAddRayCollisionFromRay( gw );
+
+    if ( rc.hit && gw->mapPiecesCount < gw->maxMapPieces ) {
+        initMapPiece( 
+            &gw->mapPieces[gw->mapPiecesCount],
+            rc.point,
+            rm->mapPieceModelAtlas[selectedMapPieceModel]
+        );
+        gw->mapPiecesCount++;
+    }
+
+}
+
+static void removeMapPiece( MapPiece *mp, GameWorld *gw ) {
+
+    deselectSelectedMapPiece();
+    int delPos = -1;
+
+    for ( int i = 0; i < gw->mapPiecesCount; i++ ) {
+        MapPiece *cMp = &gw->mapPieces[i];
+        if ( cMp == mp ) {
+            delPos = i;
+            break;
+        }
+    }
+
+    if ( delPos != -1 ) {
+        for ( int i = delPos + 1; i < gw->mapPiecesCount; i++ ) {
+            gw->mapPieces[i-1]  = gw->mapPieces[i];
+        }
+        gw->mapPiecesCount--;
+    }
 
 }
 
