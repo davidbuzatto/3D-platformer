@@ -1,4 +1,3 @@
 Improve gizmo operations:
-    Change gizmo appearance for each operation;
     Multiselection for translations;
 Tooltips for map piece model type selecion.

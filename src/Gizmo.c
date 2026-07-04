@@ -66,7 +66,10 @@ static void drawAxisHandle( Vector3 origin, GizmoAxis *axis, GizmoOperationMode 
     switch ( mode ) {
 
         case GIZMO_OPERATION_ROTATE:
+            // wires drawn slightly larger so they don't get swallowed by the
+            // solid sphere's surface
             DrawSphere( axis->pos, radius, color );
+            DrawSphereWires( axis->pos, radius * 1.06f, 6, 6, wire );
             break;
 
         case GIZMO_OPERATION_SCALE: {
@@ -105,10 +108,14 @@ void drawGizmo( Gizmo *ma, GizmoOperationMode mode ) {
     DrawLine3D( ma->center.pos, ma->yAxis.pos, DARKGRAY );
     DrawLine3D( ma->center.pos, ma->zAxis.pos, DARKGRAY );
 
+    Color centerDark = ColorBrightness( ma->center.color, -0.4f );
+
     if ( ma->center.selected ) {
         DrawSphere( ma->center.pos, ma->center.radius * expandFactor, ma->center.color );
+        DrawSphereWires( ma->center.pos, ma->center.radius * expandFactor * 1.06f, 6, 6, centerDark );
     } else {
         DrawSphere( ma->center.pos, ma->center.radius, Fade( ma->center.color, alpha ) );
+        DrawSphereWires( ma->center.pos, ma->center.radius * 1.06f, 6, 6, Fade( centerDark, alpha ) );
     }
 
     drawAxisHandle( ma->center.pos, &ma->xAxis, mode, expandFactor, alpha );
