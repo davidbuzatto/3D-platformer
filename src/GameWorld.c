@@ -244,6 +244,7 @@ void updateGameWorld( GameWorld *gw, float delta ) {
                 selectedMapPiece->gizmo.xAxis.selected = false;
                 selectedMapPiece->gizmo.zAxis.selected = false;
                 selectedMapPiece->gizmo.yAxis.selected = false;
+                selectedMapPiece->gizmo.center.selected = false;
             }
             performingGizmoOperation = false;
         }
@@ -575,6 +576,7 @@ static void deselectSelectedMapPiece( void ) {
         selectedMapPiece->gizmo.xAxis.selected = false;
         selectedMapPiece->gizmo.zAxis.selected = false;
         selectedMapPiece->gizmo.yAxis.selected = false;
+        selectedMapPiece->gizmo.center.selected = false;
         selectedMapPiece->selected = false;
         selectedMapPiece = NULL;
         performingGizmoOperation = false;
@@ -673,6 +675,7 @@ static bool selectGizmoAxisFromSelectedMapPiece( MapPiece *mp, Camera *camera ) 
     mp->gizmo.xAxis.selected = false;
     mp->gizmo.zAxis.selected = false;
     mp->gizmo.yAxis.selected = false;
+    mp->gizmo.center.selected = false;
 
     switch ( checkCollisionMouseGizmo( &mp->gizmo, camera ) ) {
         case GIZMO_AXIS_COLLISION_TYPE_NONE:
@@ -687,6 +690,14 @@ static bool selectGizmoAxisFromSelectedMapPiece( MapPiece *mp, Camera *camera ) 
         case GIZMO_AXIS_COLLISION_TYPE_Z:
             mp->gizmo.zAxis.selected = true;
             break;
+        case GIZMO_AXIS_COLLISION_TYPE_CENTER:
+            // only meaningful in scale mode -- otherwise, act as if nothing
+            // was hit, so the click falls through to selecting another piece
+            if ( gizmoMode != EDITOR_MODE_SCALE_MAP_PIECE ) {
+                return false;
+            }
+            mp->gizmo.center.selected = true;
+            break;
     }
 
     return true;
@@ -697,6 +708,20 @@ static void performGizmoOperation( MapPiece *mp, Camera *camera, float delta ) {
 
     const float rotateAmount = 1.0f;
     const float scaleAmount = 0.05f;
+
+    if ( mp->gizmo.center.selected ) {
+
+        // uniform scale: no single axis to project the mouse onto, so we
+        // just use the raw vertical movement -- up grows, down shrinks
+        float dragAmount = -GetMouseDelta().y;
+        float amount = scaleAmount * dragAmount;
+
+        mp->sca = Vector3Add( mp->sca, (Vector3) { amount, amount, amount } );
+        mp->update( mp, camera, delta );
+
+        return;
+
+    }
 
     Vector3 axisDir = { 0 };
 

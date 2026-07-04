@@ -12,6 +12,7 @@ typedef struct {
     GizmoAxis xAxis;
     GizmoAxis yAxis;
     GizmoAxis zAxis;
+    GizmoAxis center;   // uniform scale handle
 
 } Gizmo;
 

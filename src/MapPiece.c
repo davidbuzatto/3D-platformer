@@ -43,6 +43,11 @@ void initMapPiece( MapPiece *mp, Vector3 pos, MapPieceModelType modelType ) {
             .pos = { 0 },
             .radius = 0.1f,
             .color = BLUE
+        },
+        .center = {
+            .pos = { 0 },
+            .radius = 0.12f,
+            .color = ORANGE
         }
     };
 

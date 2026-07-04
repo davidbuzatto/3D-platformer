@@ -9,6 +9,7 @@ typedef enum GizmoAxisCollisionType {
     GIZMO_AXIS_COLLISION_TYPE_X,
     GIZMO_AXIS_COLLISION_TYPE_Y,
     GIZMO_AXIS_COLLISION_TYPE_Z,
+    GIZMO_AXIS_COLLISION_TYPE_CENTER,
 } GizmoAxisCollisionType;
 
 typedef struct {
