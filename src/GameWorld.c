@@ -428,6 +428,14 @@ static void updateCamera( Camera *camera, float delta ) {
         camera->target.z -= right.z * panAmount;
     }
 
+    // vertical movement is plain world Y, no yaw-dependent direction needed
+    if ( IsKeyDown( KEY_E ) ) {
+        camera->target.y += panAmount;
+    }
+    if ( IsKeyDown( KEY_Q ) ) {
+        camera->target.y -= panAmount;
+    }
+
     camera->position.x = camera->target.x + cameraDistance * cosf( pitchRad ) * cosf( yawRad );
     camera->position.y = camera->target.y + cameraDistance * sinf( pitchRad );
     camera->position.z = camera->target.z + cameraDistance * cosf( pitchRad ) * sinf( yawRad );

@@ -1,3 +1,2 @@
-Camera improvements -> change target position.
 Improve gizmo operations:
     Multiselection for translations;
