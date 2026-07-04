@@ -40,13 +40,15 @@ static RayCollision getAddRayCollisionFromRay( GameWorld *gw );
 static bool getNearestMapPieceHit( GameWorld *gw, Ray ray, MapPiece **outMp, RayCollision *outRc );
 static void addMapPiece( GameWorld *gw );
 static void removeMapPiece( MapPiece *mp, GameWorld *gw );
+
 static bool selectGizmoAxisFromSelectedMapPiece( MapPiece *mp, Camera *camera );
 static void performGizmoOperation( MapPiece *mp, Camera *camera, float delta );
+static float closestPointOnAxisToRay( Vector3 lineOrigin, Vector3 axisDir, Ray ray );
 
 static bool drawDebugInfo = true;
 
 // camera control
-static float cameraYaw               = -90.0f;  // XZ plane angle (degrees)
+static float cameraYaw               = 90.0f;   // XZ plane angle (degrees)
 static float cameraPitch             = 20.0f;   // pitch angle (degrees)
 static float cameraDistance          = 8.0f;    // current (smoothed) distance to the target
 static float cameraTargetDistance    = 8.0f;    // desired distance, set instantly by the wheel
@@ -60,7 +62,6 @@ static const float cameraDistanceMin = 1.5f;
 
 // gizmo operation
 static bool performingGizmoOperation = false;
-static int yForGizmoOperation = 0;
 
 // selected map piece to perform operations
 static MapPiece *selectedMapPiece = NULL;
@@ -215,7 +216,6 @@ void updateGameWorld( GameWorld *gw, float delta ) {
             // priority 1: gizmo operation for selected map piece
             if ( selectedMapPiece != NULL ) {
                 if ( selectGizmoAxisFromSelectedMapPiece( selectedMapPiece, camera ) ) {
-                    yForGizmoOperation = GetMouseY();
                     performingGizmoOperation = true;
                 }
             }
@@ -679,69 +679,77 @@ static bool selectGizmoAxisFromSelectedMapPiece( MapPiece *mp, Camera *camera ) 
 }
 
 static void performGizmoOperation( MapPiece *mp, Camera *camera, float delta ) {
-
-    const float translateAmount = 0.1f;
+    
     const float rotateAmount = 1.0f;
     const float scaleAmount = 0.05f;
 
-    float xAmount = 0.0f;
-    float yAmount = 0.0f;
-    float zAmount = 0.0f;
+    Vector3 axisDir = { 0 };
 
-    int ud = yForGizmoOperation - GetMouseY();
-    yForGizmoOperation = GetMouseY();
+    if ( mp->gizmo.xAxis.selected ) {
+        axisDir = (Vector3) { 1.0f, 0.0f, 0.0f };
+    } else if ( mp->gizmo.yAxis.selected ) {
+        axisDir = (Vector3) { 0.0f, 1.0f, 0.0f };
+    } else if ( mp->gizmo.zAxis.selected ) {
+        axisDir = (Vector3) { 0.0f, 0.0f, 1.0f };
+    } else {
+        return;
+    }
 
     if ( gizmoMode == EDITOR_MODE_TRANSLATE_MAP_PIECE ) {
+        
+        // moves the piece so the gizmo pivot sits exactly on the axis point
+        // closest to the mouse ray -- it "follows" the cursor along that
+        // axis, matching what you see regardless of distance/angle
+        Ray mouseRay = GetScreenToWorldRay( GetMousePosition(), *camera );
+        float t = closestPointOnAxisToRay( mp->gizmo.pos, axisDir, mouseRay );
+        Vector3 offset = Vector3Scale( axisDir, t );
 
-        if ( mp->gizmo.xAxis.selected ) {
-            xAmount = translateAmount * ud;
-        } else if ( mp->gizmo.yAxis.selected ) {
-            yAmount = translateAmount * ud;
-        } else if ( mp->gizmo.zAxis.selected ) {
-            zAmount = translateAmount * ud;
+        mp->pos = Vector3Add( mp->pos, offset );
+        mp->bb.min = Vector3Add( mp->bb.min, offset );
+        mp->bb.max = Vector3Add( mp->bb.max, offset );
+
+    } else {
+        
+        // rotate/scale: no natural "point under the cursor" here, so we keep
+        // projecting the axis to the screen and reading how much the mouse
+        // moved along that projected direction this frame
+        Vector2 originScreen  = GetWorldToScreen( mp->gizmo.pos, *camera );
+        Vector2 axisScreen    = GetWorldToScreen( Vector3Add( mp->gizmo.pos, axisDir ), *camera );
+        Vector2 screenAxisDir = Vector2Normalize( Vector2Subtract( axisScreen, originScreen ) );
+        float dragAmount = Vector2DotProduct( GetMouseDelta(), screenAxisDir );
+
+        if ( gizmoMode == EDITOR_MODE_ROTATE_MAP_PIECE ) {
+            mp->rot = Vector3Add( mp->rot, Vector3Scale( axisDir, rotateAmount * dragAmount ) );
+        } else if ( gizmoMode == EDITOR_MODE_SCALE_MAP_PIECE ) {
+            mp->sca = Vector3Add( mp->sca, Vector3Scale( axisDir, scaleAmount * dragAmount ) );
         }
-
-        mp->pos.x += xAmount;
-        mp->pos.y += yAmount;
-        mp->pos.z += zAmount;
-
-        mp->bb.min.x += xAmount;
-        mp->bb.max.x += xAmount;
-        mp->bb.min.y += yAmount;
-        mp->bb.max.y += yAmount;
-        mp->bb.min.z += zAmount;
-        mp->bb.max.z += zAmount;
-
-    } else if ( gizmoMode == EDITOR_MODE_ROTATE_MAP_PIECE ) {
-
-        if ( mp->gizmo.xAxis.selected ) {
-            xAmount = rotateAmount * ud;
-        } else if ( mp->gizmo.yAxis.selected ) {
-            yAmount = rotateAmount * ud;
-        } else if ( mp->gizmo.zAxis.selected ) {
-            zAmount = rotateAmount * ud;
-        }
-
-        mp->rot.x += xAmount;
-        mp->rot.y += yAmount;
-        mp->rot.z += zAmount;
-
-    } else if ( gizmoMode == EDITOR_MODE_SCALE_MAP_PIECE ) {
-
-        if ( mp->gizmo.xAxis.selected ) {
-            xAmount = scaleAmount * ud;
-        } else if ( mp->gizmo.yAxis.selected ) {
-            yAmount = scaleAmount * ud;
-        } else if ( mp->gizmo.zAxis.selected ) {
-            zAmount = scaleAmount * ud;
-        }
-
-        mp->sca.x += xAmount;
-        mp->sca.y += yAmount;
-        mp->sca.z += zAmount;
 
     }
 
     mp->update( mp, camera, delta );
+
+}
+
+// finds the point along the axis line (through lineOrigin, direction axisDir)
+// that comes closest to the mouse ray -- perpendicularity to both lines is
+// the condition that pins down the closest pair of points on two skew lines
+static float closestPointOnAxisToRay( Vector3 lineOrigin, Vector3 axisDir, Ray ray ) {
+
+    Vector3 w0 = Vector3Subtract( lineOrigin, ray.position );
+
+    float b = Vector3DotProduct( axisDir, ray.direction );  // both are unit vectors
+    float d = Vector3DotProduct( axisDir, w0 );
+    float e = Vector3DotProduct( ray.direction, w0 );
+
+    float denom = 1.0f - b * b;
+
+    if ( fabsf( denom ) < 0.0001f ) {
+        // axis pointing almost straight at/away from the camera -- moving
+        // along it wouldn't be visible on screen either, so there's no
+        // reliable point to solve for; just skip this frame
+        return 0.0f;
+    }
+
+    return ( b * e - d ) / denom;
 
 }
