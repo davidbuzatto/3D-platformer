@@ -62,6 +62,9 @@ static const float cameraDistanceMin = 1.5f;
 
 // gizmo operation
 static bool performingGizmoOperation = false;
+static Vector3 gizmoDragStartPos = { 0 };
+static BoundingBox gizmoDragStartBB = { 0 };
+static float gizmoDragStartT = 0.0f;
 
 // selected map piece to perform operations
 static MapPiece *selectedMapPiece = NULL;
@@ -679,7 +682,7 @@ static bool selectGizmoAxisFromSelectedMapPiece( MapPiece *mp, Camera *camera ) 
 }
 
 static void performGizmoOperation( MapPiece *mp, Camera *camera, float delta ) {
-    
+
     const float rotateAmount = 1.0f;
     const float scaleAmount = 0.05f;
 
@@ -697,16 +700,23 @@ static void performGizmoOperation( MapPiece *mp, Camera *camera, float delta ) {
 
     if ( gizmoMode == EDITOR_MODE_TRANSLATE_MAP_PIECE ) {
         
-        // moves the piece so the gizmo pivot sits exactly on the axis point
-        // closest to the mouse ray -- it "follows" the cursor along that
-        // axis, matching what you see regardless of distance/angle
         Ray mouseRay = GetScreenToWorldRay( GetMousePosition(), *camera );
-        float t = closestPointOnAxisToRay( mp->gizmo.pos, axisDir, mouseRay );
-        Vector3 offset = Vector3Scale( axisDir, t );
 
-        mp->pos = Vector3Add( mp->pos, offset );
-        mp->bb.min = Vector3Add( mp->bb.min, offset );
-        mp->bb.max = Vector3Add( mp->bb.max, offset );
+        // first frame of this drag: remember where the piece and the "grabbed
+        // point" on the axis were, so later frames move by how much the mouse
+        // moved -- not by snapping the pivot onto the ray (which caused the jump)
+        if ( IsMouseButtonPressed( MOUSE_BUTTON_LEFT ) ) {
+            gizmoDragStartPos = mp->pos;
+            gizmoDragStartBB  = mp->bb;
+            gizmoDragStartT   = closestPointOnAxisToRay( gizmoDragStartPos, axisDir, mouseRay );
+        }
+
+        float currentT = closestPointOnAxisToRay( gizmoDragStartPos, axisDir, mouseRay );
+        Vector3 offset = Vector3Scale( axisDir, currentT - gizmoDragStartT );
+
+        mp->pos    = Vector3Add( gizmoDragStartPos, offset );
+        mp->bb.min = Vector3Add( gizmoDragStartBB.min, offset );
+        mp->bb.max = Vector3Add( gizmoDragStartBB.max, offset );
 
     } else {
         
