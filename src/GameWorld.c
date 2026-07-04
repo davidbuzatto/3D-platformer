@@ -11,7 +11,7 @@
 #include <math.h>
 
 #include "raylib/raylib.h"
-//#include "raylib/raymath.h"
+#include "raylib/raymath.h"
 //#define RAYGUI_IMPLEMENTATION    // to use raygui, comment these three lines.
 //#include "raylib/raygui.h"       // other compilation units must only include
 //#undef RAYGUI_IMPLEMENTATION     // raygui.h
@@ -50,14 +50,22 @@ static void performGizmoOperation( MapPiece *mp, Camera *camera, float delta );
 
 static bool drawDebugInfo = true;
 
-static float cameraAngle      = 90.0f;
-static float cameraDistance   = 5.0f;
-static float cameraSpeed      = 10.0f;
-static float cameraAngleSpeed = 60.0f;
+// camera control
+static float cameraYaw               = -90.0f;  // XZ plane angle (degrees)
+static float cameraPitch             = 20.0f;   // pitch angle (degrees)
+static float cameraDistance          = 8.0f;    // distance to the target
+static float cameraOrbitSpeed        = 0.2f;    // degrees per pixel (mouse movement)
+static float cameraZoomSpeed         = 10.0f;   // units per second
+static float cameraPanSpeed          = 5.0f;    // units per second
+static const float cameraPitchMin    = -85.0f;
+static const float cameraPitchMax    = 85.0f;
+static const float cameraDistanceMin = 1.5f;
 
+// gizmo operation
 static bool performingGizmoOperation = false;
 static int yForGizmoOperation = 0;
 
+// selected map piece to perform operations
 static MapPiece *selectedMapPiece = NULL;
 
 // variables for EDITOR_MODE_SELECT_MAP_PIECE_MODEL_TYPE
@@ -72,6 +80,7 @@ static int startYSelect;
 static int marginSelect;
 static int spacingSelect;
 
+// editor state
 static EditorMode editorMode = EDITOR_MODE_SELECT_MAP_PIECE;
 static EditorMode gizmoMode = EDITOR_MODE_TRANSLATE_MAP_PIECE;
 
@@ -336,27 +345,48 @@ void drawGameWorld( GameWorld *gw ) {
 
 static void updateCamera( Camera *camera, float delta ) {
     
-    if ( IsKeyDown( KEY_UP ) ) {
-        camera->position.y += cameraSpeed * delta;
+    if ( IsMouseButtonDown( MOUSE_BUTTON_RIGHT ) ) {
+        Vector2 mouseDelta = GetMouseDelta();
+        cameraYaw   -= mouseDelta.x * cameraOrbitSpeed;
+        cameraPitch -= mouseDelta.y * cameraOrbitSpeed;
+        cameraPitch = Clamp( cameraPitch, cameraPitchMin, cameraPitchMax );
     }
 
-    if ( IsKeyDown( KEY_DOWN ) ) {
-        camera->position.y -= cameraSpeed * delta;
+    cameraDistance -= GetMouseWheelMove() * cameraZoomSpeed * delta;
+    if ( cameraDistance < cameraDistanceMin ) {
+        cameraDistance = cameraDistanceMin;
     }
 
-    if ( IsKeyDown( KEY_LEFT ) ) {
-        cameraAngle += cameraAngleSpeed * delta;
+    float yawRad   = DEG2RAD * cameraYaw;
+    float pitchRad = DEG2RAD * cameraPitch;
+
+    // ground-plane forward/right, derived from yaw only (pitch ignored so
+    // moving "forward" never changes height) -- moves the target, which
+    // stands in for the future player position
+    Vector3 forward = { -cosf( yawRad ), 0.0f, -sinf( yawRad ) };
+    Vector3 right   = { -sinf( yawRad ), 0.0f,  cosf( yawRad ) };
+    float panAmount = cameraPanSpeed * delta;
+
+    if ( IsKeyDown( KEY_W ) ) {
+        camera->target.x += forward.x * panAmount;
+        camera->target.z += forward.z * panAmount;
+    }
+    if ( IsKeyDown( KEY_S ) ) {
+        camera->target.x -= forward.x * panAmount;
+        camera->target.z -= forward.z * panAmount;
+    }
+    if ( IsKeyDown( KEY_D ) ) {
+        camera->target.x += right.x * panAmount;
+        camera->target.z += right.z * panAmount;
+    }
+    if ( IsKeyDown( KEY_A ) ) {
+        camera->target.x -= right.x * panAmount;
+        camera->target.z -= right.z * panAmount;
     }
 
-    if ( IsKeyDown( KEY_RIGHT ) ) {
-        cameraAngle -= cameraAngleSpeed * delta;
-    }
-
-    float m = -GetMouseWheelMove();
-    cameraDistance += cameraSpeed * m * delta;
-
-    camera->position.x = cameraDistance * cosf( DEG2RAD * cameraAngle );
-    camera->position.z = cameraDistance * sinf( DEG2RAD * cameraAngle );
+    camera->position.x = camera->target.x + cameraDistance * cosf( pitchRad ) * cosf( yawRad );
+    camera->position.y = camera->target.y + cameraDistance * sinf( pitchRad );
+    camera->position.z = camera->target.z + cameraDistance * cosf( pitchRad ) * sinf( yawRad );
 
 }
 
