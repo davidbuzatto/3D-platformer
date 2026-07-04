@@ -703,7 +703,7 @@ static bool selectGizmoAxisFromSelectedMapPiece( MapPiece *mp, Camera *camera ) 
     mp->gizmo.xzPlane.selected = false;
     mp->gizmo.yzPlane.selected = false;
 
-    switch ( checkCollisionMouseGizmo( &mp->gizmo, camera, toGizmoOperationMode( gizmoMode ) ) ) {
+    switch ( checkCollisionMouseGizmo( &mp->gizmo, camera ) ) {
         case GIZMO_AXIS_COLLISION_TYPE_NONE:
             return false;
             break;

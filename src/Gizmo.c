@@ -11,12 +11,12 @@
 static const float spc = 0.2f;
 static const float planeThickness = 0.02f;  // half-thickness of the flat plane handles
 
-// translate-mode cone: how far its tip extends beyond the handle position
-// (as a multiple of the handle radius) and how thin its base is relative to
-// the handle radius -- shared between drawing and hit-testing so they can't
-// drift apart
-static const float translateConeLengthFactor = 3.0f;
-static const float translateConeRadiusFactor  = 0.6f;
+// translate-mode cone: length as a multiple of the handle radius (2.0 = the
+// rotate sphere's diameter, so the cone fits exactly inside it once shifted
+// towards the center -- see drawAxisHandle) and how wide its base is
+// relative to the handle radius
+static const float translateConeLengthFactor = 2.0f;
+static const float translateConeRadiusFactor  = 0.8f;
 
 void updateGizmo( Gizmo *ma, Vector3 mapPiecePos, Vector3 gizmoOffset ) {
 
@@ -60,7 +60,8 @@ static void drawAxisHandle( Vector3 origin, GizmoAxis *axis, GizmoOperationMode 
 
     float radius = axis->selected ? axis->radius * expandFactor : axis->radius;
     Color color  = axis->selected ? axis->color : Fade( axis->color, alpha );
-    Color wire   = axis->selected ? BLACK : Fade( BLACK, alpha );
+    Color dark   = ColorBrightness( axis->color, -0.4f );
+    Color wire   = axis->selected ? dark : Fade( dark, alpha );
 
     switch ( mode ) {
 
@@ -87,12 +88,6 @@ static void drawAxisHandle( Vector3 origin, GizmoAxis *axis, GizmoOperationMode 
             Vector3 coneTip  = Vector3Add( coneBase, Vector3Scale( dir, coneLength ) );
             DrawCylinderEx( coneBase, coneTip, coneRadius, 0.0f, 8, color );
             DrawCylinderWiresEx( coneBase, coneTip, coneRadius, 0.0f, 8, wire );
-
-            // TEMP DEBUG: shows the actual hit-test sphere (same center and
-            // radius checkCollisionMouseGizmo uses for this mode) so its
-            // size can be tuned against the plane handles -- remove once
-            // adjusted
-            DrawSphereWires( axis->pos, shift, 8, 8, Fade( MAROON, 0.5f ) );
 
             break;
         }
@@ -127,51 +122,50 @@ void drawGizmo( Gizmo *ma, GizmoOperationMode mode ) {
     Vector3 xzSize = { ma->xzPlane.radius * 2.0f, planeThickness * 2.0f, ma->xzPlane.radius * 2.0f };
     Vector3 yzSize = { planeThickness * 2.0f, ma->yzPlane.radius * 2.0f, ma->yzPlane.radius * 2.0f };
 
+    Color xyDark = ColorBrightness( ma->xyPlane.color, -0.4f );
+    Color xzDark = ColorBrightness( ma->xzPlane.color, -0.4f );
+    Color yzDark = ColorBrightness( ma->yzPlane.color, -0.4f );
+
     if ( ma->xyPlane.selected ) {
         Vector3 size = Vector3Scale( xySize, expandFactor );
         DrawCubeV( ma->xyPlane.pos, size, ma->xyPlane.color );
-        DrawCubeWiresV( ma->xyPlane.pos, size, BLACK );
+        DrawCubeWiresV( ma->xyPlane.pos, size, xyDark );
     } else {
         DrawCubeV( ma->xyPlane.pos, xySize, Fade( ma->xyPlane.color, alpha ) );
-        DrawCubeWiresV( ma->xyPlane.pos, xySize, Fade( BLACK, alpha ) );
+        DrawCubeWiresV( ma->xyPlane.pos, xySize, Fade( xyDark, alpha ) );
     }
 
     if ( ma->xzPlane.selected ) {
         Vector3 size = Vector3Scale( xzSize, expandFactor );
         DrawCubeV( ma->xzPlane.pos, size, ma->xzPlane.color );
-        DrawCubeWiresV( ma->xzPlane.pos, size, BLACK );
+        DrawCubeWiresV( ma->xzPlane.pos, size, xzDark );
     } else {
         DrawCubeV( ma->xzPlane.pos, xzSize, Fade( ma->xzPlane.color, alpha ) );
-        DrawCubeWiresV( ma->xzPlane.pos, xzSize, Fade( BLACK, alpha ) );
+        DrawCubeWiresV( ma->xzPlane.pos, xzSize, Fade( xzDark, alpha ) );
     }
 
     if ( ma->yzPlane.selected ) {
         Vector3 size = Vector3Scale( yzSize, expandFactor );
         DrawCubeV( ma->yzPlane.pos, size, ma->yzPlane.color );
-        DrawCubeWiresV( ma->yzPlane.pos, size, BLACK );
+        DrawCubeWiresV( ma->yzPlane.pos, size, yzDark );
     } else {
         DrawCubeV( ma->yzPlane.pos, yzSize, Fade( ma->yzPlane.color, alpha ) );
-        DrawCubeWiresV( ma->yzPlane.pos, yzSize, Fade( BLACK, alpha ) );
+        DrawCubeWiresV( ma->yzPlane.pos, yzSize, Fade( yzDark, alpha ) );
     }
 
 }
 
-GizmoAxisCollisionType checkCollisionMouseGizmo( Gizmo *ma, Camera3D *camera, GizmoOperationMode mode ) {
+GizmoAxisCollisionType checkCollisionMouseGizmo( Gizmo *ma, Camera3D *camera ) {
 
     Ray ray = GetScreenToWorldRay( GetMousePosition(), *camera );
 
-    // in translate mode the visible cone is shifted towards the center by
-    // its own collision radius (see drawAxisHandle), which lands this hit
-    // sphere exactly on axis.pos -- only the radius grows to cover the cone
+    // the translate-mode cone is exactly as tall as the rotate sphere's
+    // diameter and shifted towards the center by its own radius (see
+    // drawAxisHandle), so it fits entirely inside that same sphere -- no
+    // special case needed here, the plain handle radius already covers it
     float xHitRadius = ma->xAxis.radius;
     float yHitRadius = ma->yAxis.radius;
     float zHitRadius = ma->zAxis.radius;
-
-    if ( mode == GIZMO_OPERATION_TRANSLATE ) {
-        xHitRadius = ma->xAxis.radius * translateConeLengthFactor * 0.5f;
-        yHitRadius = ma->yAxis.radius * translateConeLengthFactor * 0.5f;
-        zHitRadius = ma->zAxis.radius * translateConeLengthFactor * 0.5f;
-    }
 
     RayCollision xAxisCol  = GetRayCollisionSphere( ray, ma->xAxis.pos, xHitRadius );
     RayCollision yAxisCol  = GetRayCollisionSphere( ray, ma->yAxis.pos, yHitRadius );

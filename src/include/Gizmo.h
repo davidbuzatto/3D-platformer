@@ -28,4 +28,4 @@ typedef struct {
 
 void updateGizmo( Gizmo *ma, Vector3 mapPiecePos, Vector3 gizmoOffset );
 void drawGizmo( Gizmo *ma, GizmoOperationMode mode );
-GizmoAxisCollisionType checkCollisionMouseGizmo( Gizmo *ma, Camera3D *camera, GizmoOperationMode mode );
+GizmoAxisCollisionType checkCollisionMouseGizmo( Gizmo *ma, Camera3D *camera );
