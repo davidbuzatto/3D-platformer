@@ -1,2 +1,5 @@
+Position of map piece selector does not correspond to window resize.
+Multiselection;
+Scale for all axis;
 Improve gizmo operations (by plane)?
 Check model center do apply rotation and scaling?

@@ -338,13 +338,15 @@ void updateGameWorld( GameWorld *gw, float delta ) {
 void drawGameWorld( GameWorld *gw ) {
 
     BeginDrawing();
-    ClearBackground( WHITE );
+    ClearBackground( SKYBLUE );
 
     BeginMode3D( gw->camera );
     for ( int i = 0; i < gw->mapPiecesCount; i++ ) {
         gw->mapPieces[i].draw( &gw->mapPieces[i] );
     }
-    DrawGrid( 100, 1 );
+    if ( drawDebugInfo ) {
+        DrawGrid( 100, 1 );
+    }
     EndMode3D();
 
     drawEditorHud();
@@ -357,7 +359,7 @@ static void updateCamera( Camera *camera, float delta ) {
     
     if ( IsMouseButtonDown( MOUSE_BUTTON_RIGHT ) ) {
         Vector2 mouseDelta = GetMouseDelta();
-        cameraYaw   -= mouseDelta.x * cameraOrbitSpeed;
+        cameraYaw   += mouseDelta.x * cameraOrbitSpeed;
         cameraPitch -= mouseDelta.y * cameraOrbitSpeed;
         cameraPitch = Clamp( cameraPitch, cameraPitchMin, cameraPitchMax );
     }
