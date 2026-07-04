@@ -68,7 +68,10 @@ static const float cameraDistanceMin = 1.5f;
 // gizmo operation
 static bool performingGizmoOperation = false;
 static Vector3 gizmoDragStartPos = { 0 };
+static Vector3 gizmoDragStartRot = { 0 };
+static Vector3 gizmoDragStartSca = { 0 };
 static float gizmoDragStartT = 0.0f;
+static float gizmoDragAccum = 0.0f;
 
 // selected map piece to perform operations
 static MapPiece *selectedMapPiece = NULL;
@@ -210,7 +213,7 @@ void updateGameWorld( GameWorld *gw, float delta ) {
     updateCamera( camera, delta );
 
     for ( int i = 0; i < gw->mapPiecesCount; i++ ) {
-        gw->mapPieces[i].update( &gw->mapPieces[i], camera, delta );
+        gw->mapPieces[i].update( &gw->mapPieces[i] );
     }
 
     if ( editorMode == EDITOR_MODE_SELECT_MAP_PIECE ) {
@@ -709,15 +712,32 @@ static void performGizmoOperation( MapPiece *mp, Camera *camera, float delta ) {
     const float rotateAmount = 1.0f;
     const float scaleAmount = 0.05f;
 
+    const float translateSnap = 0.05f;
+    const float rotateSnap    = 5.0f;
+    const float scaleSnap     = 0.05f;
+    bool snap = IsKeyDown( KEY_LEFT_SHIFT );
+
+    // first frame of this drag: remember where every transform started, so
+    // later frames measure the total change since the click -- both for the
+    // "grab offset" fix (translation) and to make snapping possible (snapping
+    // a whole-frame's tiny delta would just always round down to zero)
+    if ( IsMouseButtonPressed( MOUSE_BUTTON_LEFT ) ) {
+        gizmoDragStartPos = mp->pos;
+        gizmoDragStartRot = mp->rot;
+        gizmoDragStartSca = mp->sca;
+        gizmoDragAccum = 0.0f;
+    }
+
     if ( mp->gizmo.center.selected ) {
 
         // uniform scale: no single axis to project the mouse onto, so we
         // just use the raw vertical movement -- up grows, down shrinks
-        float dragAmount = -GetMouseDelta().y;
-        float amount = scaleAmount * dragAmount;
+        gizmoDragAccum += -GetMouseDelta().y;
+        float amount = scaleAmount * gizmoDragAccum;
+        if ( snap ) amount = roundf( amount / scaleSnap ) * scaleSnap;
 
-        mp->sca = Vector3Add( mp->sca, (Vector3) { amount, amount, amount } );
-        mp->update( mp, camera, delta );
+        mp->sca = Vector3Add( gizmoDragStartSca, (Vector3) { amount, amount, amount } );
+        mp->update( mp );
 
         return;
 
@@ -736,41 +756,46 @@ static void performGizmoOperation( MapPiece *mp, Camera *camera, float delta ) {
     }
 
     if ( gizmoMode == EDITOR_MODE_TRANSLATE_MAP_PIECE ) {
-        
+
         Ray mouseRay = GetScreenToWorldRay( GetMousePosition(), *camera );
 
-        // first frame of this drag: remember where the piece and the "grabbed
-        // point" on the axis were, so later frames move by how much the mouse
-        // moved -- not by snapping the pivot onto the ray (which caused the jump)
         if ( IsMouseButtonPressed( MOUSE_BUTTON_LEFT ) ) {
-            gizmoDragStartPos = mp->pos;
             gizmoDragStartT = closestPointOnAxisToRay( gizmoDragStartPos, axisDir, mouseRay );
         }
 
         float currentT = closestPointOnAxisToRay( gizmoDragStartPos, axisDir, mouseRay );
-        Vector3 offset = Vector3Scale( axisDir, currentT - gizmoDragStartT );
+        float totalOffset = currentT - gizmoDragStartT;
+        if ( snap ) totalOffset = roundf( totalOffset / translateSnap ) * translateSnap;
 
-        mp->pos    = Vector3Add( gizmoDragStartPos, offset );
+        mp->pos = Vector3Add( gizmoDragStartPos, Vector3Scale( axisDir, totalOffset ) );
 
     } else {
-        
+
         // rotate/scale: no natural "point under the cursor" here, so we keep
-        // projecting the axis to the screen and reading how much the mouse
-        // moved along that projected direction this frame
+        // projecting the axis to the screen and accumulating how much the
+        // mouse moved along that projected direction since the drag started
         Vector2 originScreen  = GetWorldToScreen( mp->gizmo.pos, *camera );
         Vector2 axisScreen    = GetWorldToScreen( Vector3Add( mp->gizmo.pos, axisDir ), *camera );
         Vector2 screenAxisDir = Vector2Normalize( Vector2Subtract( axisScreen, originScreen ) );
-        float dragAmount = Vector2DotProduct( GetMouseDelta(), screenAxisDir );
+        gizmoDragAccum += Vector2DotProduct( GetMouseDelta(), screenAxisDir );
 
         if ( gizmoMode == EDITOR_MODE_ROTATE_MAP_PIECE ) {
-            mp->rot = Vector3Add( mp->rot, Vector3Scale( axisDir, rotateAmount * dragAmount ) );
+
+            float amount = rotateAmount * gizmoDragAccum;
+            if ( snap ) amount = roundf( amount / rotateSnap ) * rotateSnap;
+            mp->rot = Vector3Add( gizmoDragStartRot, Vector3Scale( axisDir, amount ) );
+
         } else if ( gizmoMode == EDITOR_MODE_SCALE_MAP_PIECE ) {
-            mp->sca = Vector3Add( mp->sca, Vector3Scale( axisDir, scaleAmount * dragAmount ) );
+
+            float amount = scaleAmount * gizmoDragAccum;
+            if ( snap ) amount = roundf( amount / scaleSnap ) * scaleSnap;
+            mp->sca = Vector3Add( gizmoDragStartSca, Vector3Scale( axisDir, amount ) );
+
         }
 
     }
 
-    mp->update( mp, camera, delta );
+    mp->update( mp );
 
 }
 

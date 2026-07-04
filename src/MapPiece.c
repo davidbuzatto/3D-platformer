@@ -11,7 +11,7 @@
 #include "GizmoAxis.h"
 #include "ResourceManager.h"
 
-static void update( MapPiece *mp, Camera3D *camera, float delta );
+static void update( MapPiece *mp );
 static void draw( MapPiece *mp );
 
 void initMapPiece( MapPiece *mp, Vector3 pos, MapPieceModelType modelType ) {
@@ -59,7 +59,7 @@ void initMapPiece( MapPiece *mp, Vector3 pos, MapPieceModelType modelType ) {
 
 }
 
-static void update( MapPiece *mp, Camera3D *camera, float delta ) {
+static void update( MapPiece *mp ) {
 
     mp->model.transform = MatrixRotateXYZ( 
         (Vector3) { 

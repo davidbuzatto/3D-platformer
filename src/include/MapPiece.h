@@ -182,7 +182,7 @@ struct MapPiece {
     Vector3 gizmoOffset;
     bool selected;
 
-    void (*update)( MapPiece *mp, Camera3D *camera, float delta );
+    void (*update)( MapPiece *mp );
     void (*draw)( MapPiece *mp );
 
 };
