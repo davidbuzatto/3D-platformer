@@ -48,6 +48,21 @@ void initMapPiece( MapPiece *mp, Vector3 pos, MapPieceModelType modelType ) {
             .pos = { 0 },
             .radius = 0.12f,
             .color = ORANGE
+        },
+        .xyPlane = {
+            .pos = { 0 },
+            .radius = 0.1f,
+            .color = YELLOW
+        },
+        .xzPlane = {
+            .pos = { 0 },
+            .radius = 0.1f,
+            .color = MAGENTA
+        },
+        .yzPlane = {
+            .pos = { 0 },
+            .radius = 0.1f,
+            .color = SKYBLUE
         }
     };
 

@@ -14,6 +14,10 @@ typedef struct {
     GizmoAxis zAxis;
     GizmoAxis center;   // uniform scale handle
 
+    GizmoAxis xyPlane;
+    GizmoAxis xzPlane;
+    GizmoAxis yzPlane;
+
 } Gizmo;
 
 void updateGizmo( Gizmo *ma, Vector3 mapPiecePos, Vector3 gizmoOffset );

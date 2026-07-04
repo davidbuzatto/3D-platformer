@@ -44,7 +44,7 @@ static void addMapPiece( GameWorld *gw );
 static void removeMapPiece( MapPiece *mp, GameWorld *gw );
 
 static bool selectGizmoAxisFromSelectedMapPiece( MapPiece *mp, Camera *camera );
-static void performGizmoOperation( MapPiece *mp, Camera *camera, float delta );
+static void performGizmoOperation( MapPiece *mp, Camera *camera );
 static float closestPointOnAxisToRay( Vector3 lineOrigin, Vector3 axisDir, Ray ray );
 
 static void saveMap( const char *filePath, GameWorld *gw );
@@ -70,6 +70,7 @@ static bool performingGizmoOperation = false;
 static Vector3 gizmoDragStartPos = { 0 };
 static Vector3 gizmoDragStartRot = { 0 };
 static Vector3 gizmoDragStartSca = { 0 };
+static Vector3 gizmoDragStartPlaneHit = { 0 };
 static float gizmoDragStartT = 0.0f;
 static float gizmoDragAccum = 0.0f;
 
@@ -248,12 +249,15 @@ void updateGameWorld( GameWorld *gw, float delta ) {
                 selectedMapPiece->gizmo.zAxis.selected = false;
                 selectedMapPiece->gizmo.yAxis.selected = false;
                 selectedMapPiece->gizmo.center.selected = false;
+                selectedMapPiece->gizmo.xyPlane.selected = false;
+                selectedMapPiece->gizmo.xzPlane.selected = false;
+                selectedMapPiece->gizmo.yzPlane.selected = false;
             }
             performingGizmoOperation = false;
         }
 
         if ( selectedMapPiece != NULL && performingGizmoOperation ) {
-            performGizmoOperation( selectedMapPiece, camera, delta );
+            performGizmoOperation( selectedMapPiece, camera );
         }
 
         if ( IsKeyPressed( KEY_R ) && selectedMapPiece != NULL ) {
@@ -580,6 +584,9 @@ static void deselectSelectedMapPiece( void ) {
         selectedMapPiece->gizmo.zAxis.selected = false;
         selectedMapPiece->gizmo.yAxis.selected = false;
         selectedMapPiece->gizmo.center.selected = false;
+        selectedMapPiece->gizmo.xyPlane.selected = false;
+        selectedMapPiece->gizmo.xzPlane.selected = false;
+        selectedMapPiece->gizmo.yzPlane.selected = false;
         selectedMapPiece->selected = false;
         selectedMapPiece = NULL;
         performingGizmoOperation = false;
@@ -679,6 +686,9 @@ static bool selectGizmoAxisFromSelectedMapPiece( MapPiece *mp, Camera *camera ) 
     mp->gizmo.zAxis.selected = false;
     mp->gizmo.yAxis.selected = false;
     mp->gizmo.center.selected = false;
+    mp->gizmo.xyPlane.selected = false;
+    mp->gizmo.xzPlane.selected = false;
+    mp->gizmo.yzPlane.selected = false;
 
     switch ( checkCollisionMouseGizmo( &mp->gizmo, camera ) ) {
         case GIZMO_AXIS_COLLISION_TYPE_NONE:
@@ -701,13 +711,32 @@ static bool selectGizmoAxisFromSelectedMapPiece( MapPiece *mp, Camera *camera ) 
             }
             mp->gizmo.center.selected = true;
             break;
+        case GIZMO_AXIS_COLLISION_TYPE_XY:
+            // planes only do something in translate/scale, not rotate
+            if ( gizmoMode == EDITOR_MODE_ROTATE_MAP_PIECE ) {
+                return false;
+            }
+            mp->gizmo.xyPlane.selected = true;
+            break;
+        case GIZMO_AXIS_COLLISION_TYPE_XZ:
+            if ( gizmoMode == EDITOR_MODE_ROTATE_MAP_PIECE ) {
+                return false;
+            }
+            mp->gizmo.xzPlane.selected = true;
+            break;
+        case GIZMO_AXIS_COLLISION_TYPE_YZ:
+            if ( gizmoMode == EDITOR_MODE_ROTATE_MAP_PIECE ) {
+                return false;
+            }
+            mp->gizmo.yzPlane.selected = true;
+            break;
     }
 
     return true;
 
 }
 
-static void performGizmoOperation( MapPiece *mp, Camera *camera, float delta ) {
+static void performGizmoOperation( MapPiece *mp, Camera *camera ) {
 
     const float rotateAmount = 1.0f;
     const float scaleAmount = 0.05f;
@@ -739,6 +768,79 @@ static void performGizmoOperation( MapPiece *mp, Camera *camera, float delta ) {
         mp->sca = Vector3Add( gizmoDragStartSca, (Vector3) { amount, amount, amount } );
         mp->update( mp );
 
+        return;
+
+    }
+
+    // plane handles: translate or scale two axes at once
+    Vector3 planeNormal = { 0 };
+    Vector3 planeAxisA  = { 0 };
+    Vector3 planeAxisB  = { 0 };
+
+    if ( mp->gizmo.xyPlane.selected ) {
+        planeNormal = (Vector3) { 0.0f, 0.0f, 1.0f };
+        planeAxisA  = (Vector3) { 1.0f, 0.0f, 0.0f };
+        planeAxisB  = (Vector3) { 0.0f, 1.0f, 0.0f };
+    } else if ( mp->gizmo.xzPlane.selected ) {
+        planeNormal = (Vector3) { 0.0f, 1.0f, 0.0f };
+        planeAxisA  = (Vector3) { 1.0f, 0.0f, 0.0f };
+        planeAxisB  = (Vector3) { 0.0f, 0.0f, 1.0f };
+    } else if ( mp->gizmo.yzPlane.selected ) {
+        planeNormal = (Vector3) { 1.0f, 0.0f, 0.0f };
+        planeAxisA  = (Vector3) { 0.0f, 1.0f, 0.0f };
+        planeAxisB  = (Vector3) { 0.0f, 0.0f, 1.0f };
+    }
+
+    if ( planeNormal.x != 0.0f || planeNormal.y != 0.0f || planeNormal.z != 0.0f ) {
+
+        if ( gizmoMode == EDITOR_MODE_TRANSLATE_MAP_PIECE ) {
+
+            // intersects the mouse ray with the plane through the pivot,
+            // perpendicular to the axis left out of the pair -- simpler than
+            // the closest-point-between-lines math the single axis needs,
+            // since a plane only leaves one unknown (t) to solve for
+            Ray mouseRay = GetScreenToWorldRay( GetMousePosition(), *camera );
+            float denom = Vector3DotProduct( mouseRay.direction, planeNormal );
+
+            if ( fabsf( denom ) > 0.0001f ) {
+
+                float t = Vector3DotProduct( Vector3Subtract( gizmoDragStartPos, mouseRay.position ), planeNormal ) / denom;
+                Vector3 hitPoint = Vector3Add( mouseRay.position, Vector3Scale( mouseRay.direction, t ) );
+
+                if ( IsMouseButtonPressed( MOUSE_BUTTON_LEFT ) ) {
+                    gizmoDragStartPlaneHit = hitPoint;
+                }
+
+                // both hitPoint and gizmoDragStartPlaneHit lie on the same
+                // plane, so this difference is automatically perpendicular
+                // to planeNormal -- no third-axis drift to guard against
+                Vector3 offset = Vector3Subtract( hitPoint, gizmoDragStartPlaneHit );
+
+                if ( snap ) {
+                    offset.x = roundf( offset.x / translateSnap ) * translateSnap;
+                    offset.y = roundf( offset.y / translateSnap ) * translateSnap;
+                    offset.z = roundf( offset.z / translateSnap ) * translateSnap;
+                }
+
+                mp->pos = Vector3Add( gizmoDragStartPos, offset );
+
+            }
+
+        } else if ( gizmoMode == EDITOR_MODE_SCALE_MAP_PIECE ) {
+
+            // no natural "point under the cursor" for scale -- same as the
+            // uniform scale handle, just use vertical mouse movement, applied
+            // to both in-plane axes at once
+            gizmoDragAccum += -GetMouseDelta().y;
+            float amount = scaleAmount * gizmoDragAccum;
+            if ( snap ) amount = roundf( amount / scaleSnap ) * scaleSnap;
+
+            Vector3 scaleOffset = Vector3Scale( Vector3Add( planeAxisA, planeAxisB ), amount );
+            mp->sca = Vector3Add( gizmoDragStartSca, scaleOffset );
+
+        }
+
+        mp->update( mp );
         return;
 
     }
