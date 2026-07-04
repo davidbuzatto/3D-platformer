@@ -31,11 +31,6 @@ typedef enum {
     EDITOR_MODE_SCALE_MAP_PIECE,
 } EditorMode;
 
-typedef struct {
-    MapPiece *mapPiece;
-    RayCollision rc;
-} MapPieceDistance;
-
 static void updateCamera( Camera *camera, float delta );
 static void drawEditorHud( void );
 
@@ -53,9 +48,11 @@ static bool drawDebugInfo = true;
 // camera control
 static float cameraYaw               = -90.0f;  // XZ plane angle (degrees)
 static float cameraPitch             = 20.0f;   // pitch angle (degrees)
-static float cameraDistance          = 8.0f;    // distance to the target
+static float cameraDistance          = 8.0f;    // current (smoothed) distance to the target
+static float cameraTargetDistance    = 8.0f;    // desired distance, set instantly by the wheel
 static float cameraOrbitSpeed        = 0.2f;    // degrees per pixel (mouse movement)
-static float cameraZoomSpeed         = 10.0f;   // units per second
+static float cameraZoomSpeed         = 1.0f;    // units per wheel notch
+static float cameraZoomSmoothing     = 10.0f;   // how fast distance chases the target (per second)
 static float cameraPanSpeed          = 5.0f;    // units per second
 static const float cameraPitchMin    = -85.0f;
 static const float cameraPitchMax    = 85.0f;
@@ -352,10 +349,14 @@ static void updateCamera( Camera *camera, float delta ) {
         cameraPitch = Clamp( cameraPitch, cameraPitchMin, cameraPitchMax );
     }
 
-    cameraDistance -= GetMouseWheelMove() * cameraZoomSpeed * delta;
-    if ( cameraDistance < cameraDistanceMin ) {
-        cameraDistance = cameraDistanceMin;
+    cameraTargetDistance -= GetMouseWheelMove() * cameraZoomSpeed;
+    if ( cameraTargetDistance < cameraDistanceMin ) {
+        cameraTargetDistance = cameraDistanceMin;
     }
+
+    // chases the target distance instead of jumping straight to it --
+    // smooth, but doesn't change how big a wheel notch actually is
+    cameraDistance += ( cameraTargetDistance - cameraDistance ) * cameraZoomSmoothing * delta;
 
     float yawRad   = DEG2RAD * cameraYaw;
     float pitchRad = DEG2RAD * cameraPitch;
