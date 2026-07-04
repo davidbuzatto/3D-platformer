@@ -1,9 +1,2 @@
-Needs to reposition Gizmo using model scale;
-Check model center do apply rotation and scaling;
-Change how transformations responds to the mouse movement;
-
-Improve camera controls (orbital);
-    Enable to set center (like a empty player)
-
-Persist scene data (model id, position, rotation and scale);
-Load scene data;
+Improve gizmo operations (by plane)?
+Check model center do apply rotation and scaling?

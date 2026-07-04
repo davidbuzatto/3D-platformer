@@ -175,7 +175,8 @@ struct MapPiece {
 
     MapPieceModelType modelType;
     Model model;
-    BoundingBox bb;
+    BoundingBox baseBB;  // local space: unscaled, not translated bb
+    BoundingBox bb;      // world space: derived from baseBB, pos and sca frame
 
     Gizmo gizmo;
     Vector3 gizmoOffset;

@@ -68,7 +68,6 @@ static const float cameraDistanceMin = 1.5f;
 // gizmo operation
 static bool performingGizmoOperation = false;
 static Vector3 gizmoDragStartPos = { 0 };
-static BoundingBox gizmoDragStartBB = { 0 };
 static float gizmoDragStartT = 0.0f;
 
 // selected map piece to perform operations
@@ -718,16 +717,13 @@ static void performGizmoOperation( MapPiece *mp, Camera *camera, float delta ) {
         // moved -- not by snapping the pivot onto the ray (which caused the jump)
         if ( IsMouseButtonPressed( MOUSE_BUTTON_LEFT ) ) {
             gizmoDragStartPos = mp->pos;
-            gizmoDragStartBB  = mp->bb;
-            gizmoDragStartT   = closestPointOnAxisToRay( gizmoDragStartPos, axisDir, mouseRay );
+            gizmoDragStartT = closestPointOnAxisToRay( gizmoDragStartPos, axisDir, mouseRay );
         }
 
         float currentT = closestPointOnAxisToRay( gizmoDragStartPos, axisDir, mouseRay );
         Vector3 offset = Vector3Scale( axisDir, currentT - gizmoDragStartT );
 
         mp->pos    = Vector3Add( gizmoDragStartPos, offset );
-        mp->bb.min = Vector3Add( gizmoDragStartBB.min, offset );
-        mp->bb.max = Vector3Add( gizmoDragStartBB.max, offset );
 
     } else {
         

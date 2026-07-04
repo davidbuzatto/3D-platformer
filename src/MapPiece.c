@@ -23,9 +23,9 @@ void initMapPiece( MapPiece *mp, Vector3 pos, MapPieceModelType modelType ) {
     mp->color = BLUE;
     mp->modelType = modelType;
     mp->model = rm->mapPieceModelAtlas[modelType];
-    mp->bb = GetModelBoundingBox( mp->model );
-    mp->bb.min = Vector3Add( mp->bb.min, mp->pos );
-    mp->bb.max = Vector3Add( mp->bb.max, mp->pos );
+    mp->baseBB = GetModelBoundingBox( mp->model );
+    mp->bb.min = Vector3Add( mp->baseBB.min, mp->pos );
+    mp->bb.max = Vector3Add( mp->baseBB.max, mp->pos );
 
     mp->gizmo = (Gizmo) {
         .pos = mp->pos,
@@ -55,8 +55,24 @@ void initMapPiece( MapPiece *mp, Vector3 pos, MapPieceModelType modelType ) {
 }
 
 static void update( MapPiece *mp, Camera3D *camera, float delta ) {
-    mp->model.transform = MatrixRotateXYZ( (Vector3) { mp->rot.x * DEG2RAD, mp->rot.y * DEG2RAD, mp->rot.z * DEG2RAD } );
+
+    mp->model.transform = MatrixRotateXYZ( 
+        (Vector3) { 
+            mp->rot.x * DEG2RAD, 
+            mp->rot.y * DEG2RAD, 
+            mp->rot.z * DEG2RAD
+        }
+    );
+
+    // re-derives the world box from the local (unscaled) one every frame,
+    // so scaling never leaves the box -- and the gizmo -- behind
+    mp->bb.min = Vector3Add( mp->pos, Vector3Multiply( mp->baseBB.min, mp->sca ) );
+    mp->bb.max = Vector3Add( mp->pos, Vector3Multiply( mp->baseBB.max, mp->sca ) );
+
+    mp->gizmoOffset = (Vector3) { 0, mp->bb.max.y - mp->bb.min.y + 0.1f, 0 };
+
     updateGizmo( &mp->gizmo, mp->pos, mp->gizmoOffset );
+
 }
 
 static void draw( MapPiece *mp ) {
