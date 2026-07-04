@@ -22,7 +22,7 @@
 #include "MapPiece.h"
 #include "ResourceManager.h"
 
-#define MAP_FILE_PATH "resources/maps/mapTest.txt"
+#define MAP_FILE_PATH "resources/maps/testMap.txt"
 
 typedef enum {
     EDITOR_MODE_SELECT_MAP_PIECE,
@@ -32,6 +32,12 @@ typedef enum {
     EDITOR_MODE_ROTATE_MAP_PIECE,
     EDITOR_MODE_SCALE_MAP_PIECE,
 } EditorMode;
+
+typedef enum {
+    MAP_START_MODE_EMPTY,
+    MAP_START_MODE_FILLED,
+    MAP_START_MODE_LOAD_TEST_MAP
+} MapStartMode;
 
 static void updateCamera( Camera *camera, float delta );
 static void drawEditorHud( void );
@@ -95,6 +101,9 @@ static int spacingSelect;
 static EditorMode editorMode = EDITOR_MODE_SELECT_MAP_PIECE;
 static EditorMode gizmoMode = EDITOR_MODE_TRANSLATE_MAP_PIECE;
 
+// map start mode
+static MapStartMode mapStartMode = MAP_START_MODE_LOAD_TEST_MAP;
+
 /**
  * @brief Creates a dinamically allocated GameWorld struct instance.
  */
@@ -104,73 +113,77 @@ GameWorld *createGameWorld( void ) {
 
     GameWorld *gw = (GameWorld*) malloc( sizeof( GameWorld ) );
 
-    /*int rows = 7;
-    int cols = 5;*/
-    int rows = 0;
-    int cols = 0;
     gw->maxMapPieces = 1000;
     gw->mapPiecesCount = 0;
     gw->mapPieces = (MapPiece*) malloc( sizeof( MapPiece ) * gw->maxMapPieces );
 
-    float mapPieceSpacing = 0.2f;
+    if ( mapStartMode == MAP_START_MODE_FILLED ) {
 
-    MapPieceModelType modelTypes[7] = {
-        MODEL_TYPE_BLOCK_GRASS_LARGE_TALL,
-        MODEL_TYPE_BLOCK_GRASS_LARGE,
-        MODEL_TYPE_BLOCK_GRASS_LONG,
-        MODEL_TYPE_BLOCK_GRASS_CURVE,
-        MODEL_TYPE_BLOCK_GRASS,
-        MODEL_TYPE_BLOCK_GRASS_CORNER,
-        MODEL_TYPE_BLOCK_GRASS_EDGE
-    };
+        int rows = 7;
+        int cols = 5;
+        float mapPieceSpacing = 0.2f;
 
-    float startPosZ = 0;
+        MapPieceModelType modelTypes[7] = {
+            MODEL_TYPE_BLOCK_GRASS_LARGE_TALL,
+            MODEL_TYPE_BLOCK_GRASS_LARGE,
+            MODEL_TYPE_BLOCK_GRASS_LONG,
+            MODEL_TYPE_BLOCK_GRASS_CURVE,
+            MODEL_TYPE_BLOCK_GRASS,
+            MODEL_TYPE_BLOCK_GRASS_CORNER,
+            MODEL_TYPE_BLOCK_GRASS_EDGE
+        };
 
-    for ( int i = 0; i < rows; i++ ) {
+        float startPosZ = 0;
 
-        BoundingBox bb = GetModelBoundingBox( rm->mapPieceModelAtlas[modelTypes[i]] );
-        float mapPieceSizeZ = bb.max.z - bb.min.z;
+        for ( int i = 0; i < rows; i++ ) {
 
-        startPosZ -= mapPieceSizeZ;
+            BoundingBox bb = GetModelBoundingBox( rm->mapPieceModelAtlas[modelTypes[i]] );
+            float mapPieceSizeZ = bb.max.z - bb.min.z;
 
-        if ( i < rows - 1 ) {
-            startPosZ -= mapPieceSpacing;
-        }
+            startPosZ -= mapPieceSizeZ;
 
-    }
-
-    startPosZ /= 2.0f;
-
-    for ( int i = 0; i < rows; i++ ) {
-
-        BoundingBox bb = GetModelBoundingBox( rm->mapPieceModelAtlas[modelTypes[i]] );
-
-        float mapPieceSizeX = bb.max.x - bb.min.x;
-        float mapPieceSizeZ = bb.max.z - bb.min.z;
-
-        float startPosX = - ( ( cols * mapPieceSizeX + ( cols - 1 ) * mapPieceSpacing ) / 2.0f - mapPieceSizeX / 2.0f );
-        float rowCenter = startPosZ + mapPieceSizeZ / 2.0f;
-
-        for ( int j = 0; j < cols; j++ ) {
-
-            int p = i * cols + j;
-
-            initMapPiece( 
-                &gw->mapPieces[p], 
-                (Vector3) { 
-                    startPosX + j * (mapPieceSizeX + mapPieceSpacing), 
-                    0,
-                    rowCenter
-                },
-                modelTypes[i]
-            );
-
-            gw->mapPiecesCount++;
+            if ( i < rows - 1 ) {
+                startPosZ -= mapPieceSpacing;
+            }
 
         }
-        
-        startPosZ += mapPieceSizeZ + mapPieceSpacing;
 
+        startPosZ /= 2.0f;
+
+        for ( int i = 0; i < rows; i++ ) {
+
+            BoundingBox bb = GetModelBoundingBox( rm->mapPieceModelAtlas[modelTypes[i]] );
+
+            float mapPieceSizeX = bb.max.x - bb.min.x;
+            float mapPieceSizeZ = bb.max.z - bb.min.z;
+
+            float startPosX = - ( ( cols * mapPieceSizeX + ( cols - 1 ) * mapPieceSpacing ) / 2.0f - mapPieceSizeX / 2.0f );
+            float rowCenter = startPosZ + mapPieceSizeZ / 2.0f;
+
+            for ( int j = 0; j < cols; j++ ) {
+
+                int p = i * cols + j;
+
+                initMapPiece( 
+                    &gw->mapPieces[p], 
+                    (Vector3) { 
+                        startPosX + j * (mapPieceSizeX + mapPieceSpacing), 
+                        0,
+                        rowCenter
+                    },
+                    modelTypes[i]
+                );
+
+                gw->mapPiecesCount++;
+
+            }
+            
+            startPosZ += mapPieceSizeZ + mapPieceSpacing;
+
+        }
+
+    } else if ( mapStartMode == MAP_START_MODE_LOAD_TEST_MAP ) {
+        loadMap( MAP_FILE_PATH, gw );
     }
 
     gw->camera = (Camera3D) {
@@ -182,7 +195,7 @@ GameWorld *createGameWorld( void ) {
     };
 
 
-    // variables for EDITOR_MODE_SELECT_MAP_PIECE_MODEL_TYPE
+    // variables for map piece model selection
     targetWSelect = rm->mapPieceModelAtlasPreviewTexture.width / 2;
     targetHSelect = rm->mapPieceModelAtlasPreviewTexture.height / 2;
     piecesPerLineSelect = 15;

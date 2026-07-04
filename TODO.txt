@@ -1,3 +1,2 @@
 Improve gizmo operations:
     Multiselection for translations;
-Tooltips for map piece model type selecion.
