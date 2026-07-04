@@ -183,7 +183,7 @@ struct MapPiece {
     bool selected;
 
     void (*update)( MapPiece *mp );
-    void (*draw)( MapPiece *mp );
+    void (*draw)( MapPiece *mp, GizmoOperationMode mode );
 
 };
 

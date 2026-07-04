@@ -45,6 +45,7 @@ static void removeMapPiece( MapPiece *mp, GameWorld *gw );
 
 static bool selectGizmoAxisFromSelectedMapPiece( MapPiece *mp, Camera *camera );
 static void performGizmoOperation( MapPiece *mp, Camera *camera );
+static GizmoOperationMode toGizmoOperationMode( EditorMode mode );
 static float closestPointOnAxisToRay( Vector3 lineOrigin, Vector3 axisDir, Ray ray );
 
 static void saveMap( const char *filePath, GameWorld *gw );
@@ -348,9 +349,11 @@ void drawGameWorld( GameWorld *gw ) {
     BeginDrawing();
     ClearBackground( RAYWHITE );
 
+    GizmoOperationMode currentGizmoOperationMode = toGizmoOperationMode( gizmoMode );
+
     BeginMode3D( gw->camera );
     for ( int i = 0; i < gw->mapPiecesCount; i++ ) {
-        gw->mapPieces[i].draw( &gw->mapPieces[i] );
+        gw->mapPieces[i].draw( &gw->mapPieces[i], currentGizmoOperationMode );
     }
     if ( drawDebugInfo ) {
         DrawGrid( 100, 1 );
@@ -680,6 +683,16 @@ static void removeMapPiece( MapPiece *mp, GameWorld *gw ) {
 
 }
 
+static GizmoOperationMode toGizmoOperationMode( EditorMode mode ) {
+
+    switch ( mode ) {
+        case EDITOR_MODE_ROTATE_MAP_PIECE: return GIZMO_OPERATION_ROTATE;
+        case EDITOR_MODE_SCALE_MAP_PIECE:  return GIZMO_OPERATION_SCALE;
+        default:                           return GIZMO_OPERATION_TRANSLATE;
+    }
+
+}
+
 static bool selectGizmoAxisFromSelectedMapPiece( MapPiece *mp, Camera *camera ) {
 
     mp->gizmo.xAxis.selected = false;
@@ -690,7 +703,7 @@ static bool selectGizmoAxisFromSelectedMapPiece( MapPiece *mp, Camera *camera ) 
     mp->gizmo.xzPlane.selected = false;
     mp->gizmo.yzPlane.selected = false;
 
-    switch ( checkCollisionMouseGizmo( &mp->gizmo, camera ) ) {
+    switch ( checkCollisionMouseGizmo( &mp->gizmo, camera, toGizmoOperationMode( gizmoMode ) ) ) {
         case GIZMO_AXIS_COLLISION_TYPE_NONE:
             return false;
             break;

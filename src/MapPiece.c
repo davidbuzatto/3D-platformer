@@ -12,7 +12,7 @@
 #include "ResourceManager.h"
 
 static void update( MapPiece *mp );
-static void draw( MapPiece *mp );
+static void draw( MapPiece *mp, GizmoOperationMode mode );
 
 void initMapPiece( MapPiece *mp, Vector3 pos, MapPieceModelType modelType ) {
     
@@ -95,14 +95,14 @@ static void update( MapPiece *mp ) {
 
 }
 
-static void draw( MapPiece *mp ) {
+static void draw( MapPiece *mp, GizmoOperationMode mode ) {
 
     //DrawModel( mp->model, mp->pos, 1.0f, WHITE );
     DrawModelEx( mp->model, mp->pos, (Vector3){ 0 }, 0.0f, mp->sca, WHITE );
 
     if ( mp->selected ) {
         DrawBoundingBox( mp->bb, BLACK );
-        drawGizmo( &mp->gizmo );
+        drawGizmo( &mp->gizmo, mode );
     }
 
 }

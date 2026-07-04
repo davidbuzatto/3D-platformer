@@ -1,8 +1,4 @@
 Improve gizmo operations:
-    Translate by planes (XY, XZ and YZ);
-    Scale by plane (XY, XZ and YZ);
-    Scale for all axis;
-    Transforms with fixed ticks (rounded, maybe 0.05 world units, pressing down SHIFT maybe?);
-    Multiselection for translations;
     Change gizmo appearance for each operation;
+    Multiselection for translations;
 Tooltips for map piece model type selecion.

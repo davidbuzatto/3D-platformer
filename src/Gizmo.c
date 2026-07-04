@@ -11,6 +11,13 @@
 static const float spc = 0.2f;
 static const float planeThickness = 0.02f;  // half-thickness of the flat plane handles
 
+// translate-mode cone: how far its tip extends beyond the handle position
+// (as a multiple of the handle radius) and how thin its base is relative to
+// the handle radius -- shared between drawing and hit-testing so they can't
+// drift apart
+static const float translateConeLengthFactor = 3.0f;
+static const float translateConeRadiusFactor  = 0.6f;
+
 void updateGizmo( Gizmo *ma, Vector3 mapPiecePos, Vector3 gizmoOffset ) {
 
     ma->pos = Vector3Add( mapPiecePos, gizmoOffset );
@@ -46,7 +53,53 @@ void updateGizmo( Gizmo *ma, Vector3 mapPiecePos, Vector3 gizmoOffset ) {
 
 }
 
-void drawGizmo( Gizmo *ma ) {
+// draws one axis handle with a shape that matches the current operation:
+// sphere for rotate, cube for scale, arrowhead cone (pointing away from
+// origin) for translate
+static void drawAxisHandle( Vector3 origin, GizmoAxis *axis, GizmoOperationMode mode, float expandFactor, float alpha ) {
+
+    float radius = axis->selected ? axis->radius * expandFactor : axis->radius;
+    Color color  = axis->selected ? axis->color : Fade( axis->color, alpha );
+    Color wire   = axis->selected ? BLACK : Fade( BLACK, alpha );
+
+    switch ( mode ) {
+
+        case GIZMO_OPERATION_ROTATE:
+            DrawSphere( axis->pos, radius, color );
+            break;
+
+        case GIZMO_OPERATION_SCALE: {
+            Vector3 size = { radius * 2.0f, radius * 2.0f, radius * 2.0f };
+            DrawCubeV( axis->pos, size, color );
+            DrawCubeWiresV( axis->pos, size, wire );
+            break;
+        }
+
+        case GIZMO_OPERATION_TRANSLATE: {
+            // base at the handle position, tip further out
+            float coneLength = axis->radius * translateConeLengthFactor;
+            float coneRadius = radius * translateConeRadiusFactor;
+            Vector3 dir = Vector3Normalize( Vector3Subtract( axis->pos, origin ) );
+            Vector3 coneTip = Vector3Add( axis->pos, Vector3Scale( dir, coneLength ) );
+            DrawCylinderEx( axis->pos, coneTip, coneRadius, 0.0f, 8, color );
+            DrawCylinderWiresEx( axis->pos, coneTip, coneRadius, 0.0f, 8, wire );
+
+            // TEMP DEBUG: shows the actual hit-test sphere (same center and
+            // radius checkCollisionMouseGizmo uses for this mode -- centered
+            // on the cone's midpoint, half the cone's length as radius) so
+            // its size can be tuned against the plane handles -- remove once
+            // adjusted
+            Vector3 coneMid = Vector3Add( axis->pos, Vector3Scale( dir, coneLength * 0.5f ) );
+            DrawSphereWires( coneMid, coneLength * 0.5f, 8, 8, Fade( MAROON, 0.5f ) );
+
+            break;
+        }
+
+    }
+
+}
+
+void drawGizmo( Gizmo *ma, GizmoOperationMode mode ) {
 
     const float expandFactor = 1.2f;
     const float alpha = 0.7f;
@@ -61,23 +114,9 @@ void drawGizmo( Gizmo *ma ) {
         DrawSphere( ma->center.pos, ma->center.radius, Fade( ma->center.color, alpha ) );
     }
 
-    if ( ma->xAxis.selected ) {
-        DrawSphere( ma->xAxis.pos, ma->xAxis.radius * expandFactor, ma->xAxis.color );
-    } else {
-        DrawSphere( ma->xAxis.pos, ma->xAxis.radius, Fade( ma->xAxis.color, alpha ) );
-    }
-
-    if ( ma->yAxis.selected ) {
-        DrawSphere( ma->yAxis.pos, ma->yAxis.radius * expandFactor, ma->yAxis.color );
-    } else {
-        DrawSphere( ma->yAxis.pos, ma->yAxis.radius, Fade( ma->yAxis.color, alpha ) );
-    }
-
-    if ( ma->zAxis.selected ) {
-        DrawSphere( ma->zAxis.pos, ma->zAxis.radius * expandFactor, ma->zAxis.color );
-    } else {
-        DrawSphere( ma->zAxis.pos, ma->zAxis.radius, Fade( ma->zAxis.color, alpha ) );
-    }
+    drawAxisHandle( ma->center.pos, &ma->xAxis, mode, expandFactor, alpha );
+    drawAxisHandle( ma->center.pos, &ma->yAxis, mode, expandFactor, alpha );
+    drawAxisHandle( ma->center.pos, &ma->zAxis, mode, expandFactor, alpha );
 
     // plane handles are drawn as flat, thin boxes -- one dimension squashed
     // down to planeThickness (the axis missing from that plane) -- so they
@@ -115,13 +154,44 @@ void drawGizmo( Gizmo *ma ) {
 
 }
 
-GizmoAxisCollisionType checkCollisionMouseGizmo( Gizmo *ma, Camera3D *camera ) {
+GizmoAxisCollisionType checkCollisionMouseGizmo( Gizmo *ma, Camera3D *camera, GizmoOperationMode mode ) {
 
     Ray ray = GetScreenToWorldRay( GetMousePosition(), *camera );
 
-    RayCollision xAxisCol  = GetRayCollisionSphere( ray, ma->xAxis.pos, ma->xAxis.radius );
-    RayCollision yAxisCol  = GetRayCollisionSphere( ray, ma->yAxis.pos, ma->yAxis.radius );
-    RayCollision zAxisCol  = GetRayCollisionSphere( ray, ma->zAxis.pos, ma->zAxis.radius );
+    // in translate mode the visible handle is a cone reaching out from the
+    // handle position -- test a sphere centered on the cone's midpoint with
+    // half its length as radius, so it hugs the cone instead of sitting at
+    // the handle (missing the outer half) or engulfing the plane handles
+    Vector3 xHitPos = ma->xAxis.pos;
+    Vector3 yHitPos = ma->yAxis.pos;
+    Vector3 zHitPos = ma->zAxis.pos;
+    float xHitRadius = ma->xAxis.radius;
+    float yHitRadius = ma->yAxis.radius;
+    float zHitRadius = ma->zAxis.radius;
+
+    if ( mode == GIZMO_OPERATION_TRANSLATE ) {
+
+        Vector3 xDir = Vector3Normalize( Vector3Subtract( ma->xAxis.pos, ma->center.pos ) );
+        Vector3 yDir = Vector3Normalize( Vector3Subtract( ma->yAxis.pos, ma->center.pos ) );
+        Vector3 zDir = Vector3Normalize( Vector3Subtract( ma->zAxis.pos, ma->center.pos ) );
+
+        float xHalfCone = ma->xAxis.radius * translateConeLengthFactor * 0.5f;
+        float yHalfCone = ma->yAxis.radius * translateConeLengthFactor * 0.5f;
+        float zHalfCone = ma->zAxis.radius * translateConeLengthFactor * 0.5f;
+
+        xHitPos = Vector3Add( ma->xAxis.pos, Vector3Scale( xDir, xHalfCone ) );
+        yHitPos = Vector3Add( ma->yAxis.pos, Vector3Scale( yDir, yHalfCone ) );
+        zHitPos = Vector3Add( ma->zAxis.pos, Vector3Scale( zDir, zHalfCone ) );
+
+        xHitRadius = xHalfCone;
+        yHitRadius = yHalfCone;
+        zHitRadius = zHalfCone;
+
+    }
+
+    RayCollision xAxisCol  = GetRayCollisionSphere( ray, xHitPos, xHitRadius );
+    RayCollision yAxisCol  = GetRayCollisionSphere( ray, yHitPos, yHitRadius );
+    RayCollision zAxisCol  = GetRayCollisionSphere( ray, zHitPos, zHitRadius );
     RayCollision centerCol = GetRayCollisionSphere( ray, ma->center.pos, ma->center.radius );
 
     // plane handles are flat boxes now, so hit-test them as boxes -- matches
