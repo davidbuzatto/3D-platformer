@@ -22,6 +22,8 @@
 #include "MapPiece.h"
 #include "ResourceManager.h"
 
+#define MAP_FILE_PATH "resources/maps/mapTest.txt"
+
 typedef enum {
     EDITOR_MODE_SELECT_MAP_PIECE,
     EDITOR_MODE_ADD_MAP_PIECE,
@@ -44,6 +46,9 @@ static void removeMapPiece( MapPiece *mp, GameWorld *gw );
 static bool selectGizmoAxisFromSelectedMapPiece( MapPiece *mp, Camera *camera );
 static void performGizmoOperation( MapPiece *mp, Camera *camera, float delta );
 static float closestPointOnAxisToRay( Vector3 lineOrigin, Vector3 axisDir, Ray ray );
+
+static void saveMap( const char *filePath, GameWorld *gw );
+static void loadMap( const char *filePath, GameWorld *gw );
 
 static bool drawDebugInfo = true;
 
@@ -318,6 +323,14 @@ void updateGameWorld( GameWorld *gw, float delta ) {
 
     if ( IsKeyPressed( KEY_F6 ) ) drawDebugInfo = !drawDebugInfo;
 
+    if ( IsKeyDown( KEY_LEFT_CONTROL ) && IsKeyPressed( KEY_S ) ) {
+        saveMap( MAP_FILE_PATH, gw );
+    }
+
+    if ( IsKeyDown( KEY_LEFT_CONTROL ) && IsKeyPressed( KEY_O ) ) {
+        loadMap( MAP_FILE_PATH, gw );
+    }
+
 }
 
 /**
@@ -373,7 +386,7 @@ static void updateCamera( Camera *camera, float delta ) {
         camera->target.x += forward.x * panAmount;
         camera->target.z += forward.z * panAmount;
     }
-    if ( IsKeyDown( KEY_S ) ) {
+    if ( !IsKeyDown( KEY_LEFT_CONTROL ) && IsKeyDown( KEY_S ) ) {
         camera->target.x -= forward.x * panAmount;
         camera->target.z -= forward.z * panAmount;
     }
@@ -759,5 +772,72 @@ static float closestPointOnAxisToRay( Vector3 lineOrigin, Vector3 axisDir, Ray r
     }
 
     return ( b * e - d ) / denom;
+
+}
+
+static void saveMap( const char *filePath, GameWorld *gw ) {
+
+    int bufferSize = gw->mapPiecesCount * 128 + 1;   // upper bound per line
+    char *buffer = (char*) malloc( bufferSize );
+    int offset = 0;
+
+    for ( int i = 0; i < gw->mapPiecesCount; i++ ) {
+
+        MapPiece *mp = &gw->mapPieces[i];
+
+        offset += snprintf(
+            buffer + offset,
+            bufferSize - offset,
+            "%d %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f\n",
+            (int) mp->modelType,
+            mp->pos.x, mp->pos.y, mp->pos.z, 
+            mp->rot.x, mp->rot.y, mp->rot.z, 
+            mp->sca.x, mp->sca.y, mp->sca.z
+        );
+
+    }
+
+    SaveFileText( filePath, buffer );
+    free( buffer );
+
+}
+
+static void loadMap( const char *filePath, GameWorld *gw ) {
+
+    char *fileText = LoadFileText( filePath );
+    if ( fileText == NULL ) {
+        return;
+    }
+
+    deselectSelectedMapPiece();
+    gw->mapPiecesCount = 0;
+
+    const char *cursor = fileText;
+    int modelType;
+    Vector3 pos;
+    Vector3 rot;
+    Vector3 sca;
+    int charsRead = 0;
+
+    while ( gw->mapPiecesCount < gw->maxMapPieces && 
+            sscanf( cursor, "%d %f %f %f %f %f %f %f %f %f%n",
+                    &modelType,
+                    &pos.x, &pos.y, &pos.z,
+                    &rot.x, &rot.y, &rot.z,
+                    &sca.x, &sca.y, &sca.z, &charsRead ) == 10 ) {
+        
+        if ( modelType >= 0 && modelType < rm->mapPieceModelAtlasCount ) {
+            MapPiece *mp = &gw->mapPieces[gw->mapPiecesCount];
+            initMapPiece( mp, pos, (MapPieceModelType) modelType );
+            mp->rot = rot;
+            mp->sca = sca;
+            gw->mapPiecesCount++;
+        }
+
+        cursor += charsRead;
+
+    }
+
+    UnloadFileText( fileText );
 
 }
