@@ -379,7 +379,7 @@ static void updateCamera( Camera *camera, float delta ) {
     // moving "forward" never changes height) -- moves the target, which
     // stands in for the future player position
     Vector3 forward = { -cosf( yawRad ), 0.0f, -sinf( yawRad ) };
-    Vector3 right   = { -sinf( yawRad ), 0.0f,  cosf( yawRad ) };
+    Vector3 right   = {  sinf( yawRad ), 0.0f, -cosf( yawRad ) };
     float panAmount = cameraPanSpeed * delta;
 
     if ( IsKeyDown( KEY_W ) ) {
