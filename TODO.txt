@@ -7,9 +7,9 @@ Duplicate map piece -> reposition using key to not overlap;
     Right Shitf + PgDw  -> duplicate bottom of Y (no overlap);
 
 Piece snap when adding:
-    Which plane?
-    Using grid as target;
-    Using another piece as target;
+    Which plane? How to select?
+        When using grid as target, XZ plane; Keeping some key pressed?
+        Using another piece as target, when keeping some key pressed, center in the target "plane" of the piece (using boungind box?)
 
 Improve gizmo operations:
     Multiselection for translations;
