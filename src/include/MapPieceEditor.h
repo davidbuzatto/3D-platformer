@@ -19,6 +19,12 @@ typedef enum GizmoMode {
     GIZMO_MODE_SCALE,
 } GizmoMode;
 
+typedef enum MapPieceDuplicateOperationAxis {
+    DUPLICATE_OPERATION_X,
+    DUPLICATE_OPERATION_Y,
+    DUPLICATE_OPERATION_Z,
+} DuplicateOperation;
+
 MapPiece *getSelectedMapPiece( void );
 void deselectSelectedMapPiece( void );
 
@@ -41,3 +47,5 @@ void removeMapPiece( MapPiece *mp, GameWorld *gw );
  * piece. Does nothing if no piece is selected.
  */
 void drawMapPiecePropertiesPanel( void );
+
+void duplicateSelectedMapPiece( GameWorld *gw, DuplicateOperation axis, float sign );

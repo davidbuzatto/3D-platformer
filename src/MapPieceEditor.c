@@ -608,3 +608,38 @@ void drawMapPiecePropertiesPanel( void ) {
     #endif
 
 }
+
+void duplicateSelectedMapPiece( GameWorld *gw, DuplicateOperation axis, float sign ) {
+
+    MapPiece *mp = selectedMapPiece;
+
+    if ( mp == NULL || gw->mapPiecesCount >= gw->maxMapPieces ) {
+        return;
+    }
+
+    float size = 0.0f;
+    switch ( axis ) {
+        case DUPLICATE_OPERATION_X: size = mp->bb.max.x - mp->bb.min.x; break;
+        case DUPLICATE_OPERATION_Y: size = mp->bb.max.y - mp->bb.min.y; break;
+        case DUPLICATE_OPERATION_Z: size = mp->bb.max.z - mp->bb.min.z; break;
+    }
+
+    Vector3 newPos = mp->pos;
+    switch ( axis ) {
+        case DUPLICATE_OPERATION_X: newPos.x += size * sign; break;
+        case DUPLICATE_OPERATION_Y: newPos.y += size * sign; break;
+        case DUPLICATE_OPERATION_Z: newPos.z += size * sign; break;
+    }
+
+    MapPiece *copy = &gw->mapPieces[gw->mapPiecesCount];
+    initMapPiece( copy, newPos, mp->modelType );
+    copy->rot = mp->rot;
+    copy->sca = mp->sca;
+    gw->mapPiecesCount++;
+
+    // select the copy to allow operation repetition
+    deselectSelectedMapPiece();
+    selectedMapPiece = copy;
+    selectedMapPiece->selected = true;
+
+}

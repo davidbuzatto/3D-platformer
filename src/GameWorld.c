@@ -198,6 +198,15 @@ void updateGameWorld( GameWorld *gw, float delta ) {
         if ( IsKeyPressed( KEY_F2 ) ) setGizmoMode( GIZMO_MODE_ROTATE );
         if ( IsKeyPressed( KEY_F3 ) ) setGizmoMode( GIZMO_MODE_SCALE );
 
+        if ( IsKeyDown( KEY_LEFT_SHIFT ) ) {
+            if ( IsKeyPressed( KEY_LEFT ) ) duplicateSelectedMapPiece( gw, DUPLICATE_OPERATION_X, -1.0f );
+            if ( IsKeyPressed( KEY_RIGHT ) ) duplicateSelectedMapPiece( gw, DUPLICATE_OPERATION_X, 1.0f );
+            if ( IsKeyPressed( KEY_UP ) ) duplicateSelectedMapPiece( gw, DUPLICATE_OPERATION_Z, -1.0f );
+            if ( IsKeyPressed( KEY_DOWN ) ) duplicateSelectedMapPiece( gw, DUPLICATE_OPERATION_Z, 1.0f );
+            if ( IsKeyPressed( KEY_PAGE_UP ) ) duplicateSelectedMapPiece( gw, DUPLICATE_OPERATION_Y, 1.0f );
+            if ( IsKeyPressed( KEY_PAGE_DOWN ) ) duplicateSelectedMapPiece( gw, DUPLICATE_OPERATION_Y, -1.0f );
+        }
+
     } else if ( editorMode == EDITOR_MODE_ADD_MAP_PIECE ) {
 
         if ( IsMouseButtonPressed( MOUSE_BUTTON_LEFT ) ) {
