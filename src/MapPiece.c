@@ -75,6 +75,16 @@ void initMapPiece( MapPiece *mp, Vector3 pos, MapPieceModelType modelType ) {
 
 }
 
+Matrix getMapPieceWorldTransform( MapPiece *mp ) {
+    return MatrixMultiply(
+        MatrixTranslate( mp->pos.x, mp->pos.y, mp->pos.z ),
+        MatrixMultiply(
+            mp->model.transform,
+            MatrixScale( mp->sca.x, mp->sca.y, mp->sca.z )
+        )
+    );
+}
+
 static void update( MapPiece *mp ) {
 
     mp->model.transform = MatrixRotateXYZ( 

@@ -13,7 +13,7 @@ struct Player {
     BoundingBox baseBB;
 
     void (*input)( Player* p, Camera3D *camera );
-    void (*update)( Player* p, float delta );
+    void (*update)( Player* p, MapPiece *mapPieces, int mapPiecesCount, float delta );
     void (*draw)( Player* p );
 
 };

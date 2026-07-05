@@ -138,7 +138,7 @@ GameWorld *createGameWorld( void ) {
         loadMap( MAP_FILE_PATH, gw, CENTER_LOADED_MAP );
     }
 
-    initPlayer( &gw->player, (Vector3) { 4.05, 5.0f, 4.0f } );
+    initPlayer( &gw->player, (Vector3) { 1.89f, 1.0f, 4.24f } );
 
     gw->camera = (Camera3D) {
         .fovy = 60.0f,
@@ -180,7 +180,7 @@ void updateGameWorld( GameWorld *gw, float delta ) {
 
     if ( playMode ) {
         gw->player.input( &gw->player, camera );
-        gw->player.update( &gw->player, delta );
+        gw->player.update( &gw->player, gw->mapPieces, gw->mapPiecesCount, delta );
         return;
     }
 

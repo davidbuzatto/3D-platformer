@@ -190,3 +190,4 @@ struct MapPiece {
 };
 
 void initMapPiece( MapPiece *mp, Vector3 pos, MapPieceModelType modelType );
+Matrix getMapPieceWorldTransform( MapPiece *mp );

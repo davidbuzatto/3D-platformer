@@ -21,8 +21,10 @@
 #define GAMEPAD_DEADZONE 0.2f
 
 static void input( Player* p, Camera3D *camera );
-static void update( Player *p, float delta );
+static void update( Player *p, MapPiece *mapPieces, int mapPiecesCount, float delta );
 static void draw( Player *p );
+
+static float getGroundY( Vector3 pos, MapPiece *mapPieces, int mapPiecesCount );
 
 static const float moveSpeed = 6.0f; // units per second
 
@@ -88,14 +90,55 @@ static void input( Player* p, Camera3D *camera ) {
 
 }
 
-static void update( Player *p, float delta ) {
+static void update( Player *p, MapPiece *mapPieces, int mapPiecesCount, float delta ) {
+
+    float oldY = p->pos.y;
 
     // Euler integration: v += a*dt, then pos += v*dt
     p->vel.y += gravity * delta;
     p->pos = Vector3Add( p->pos, Vector3Scale( p->vel, delta ) );
 
+    // probe
+    Vector3 probeOrigin = p->pos;
+    probeOrigin.y = oldY + 0.05f;
+
+    float groundY = getGroundY( probeOrigin, mapPieces, mapPiecesCount );
+
+    // snap to ground
+    if ( !isinf( groundY ) && p->pos.y <= groundY ) {
+        p->pos.y = groundY;
+        p->vel.y = 0.0f;
+    }
+
 }
 
 static void draw( Player *p ) {
     DrawModel( p->model, p->pos, 1.0f, WHITE );
+}
+
+static float getGroundY( Vector3 pos, MapPiece *mapPieces, int mapPiecesCount ) {
+
+    Ray ray = {
+        .position = pos,
+        .direction = { 0.0f, -1.0f, 0.0 }
+    };
+
+    float highestY = -INFINITY;
+
+    for ( int i = 0; i < mapPiecesCount; i++ ) {
+
+        MapPiece *mp = &mapPieces[i];
+        Matrix transform = getMapPieceWorldTransform( mp );
+
+        for ( int m = 0; m < mp->model.meshCount; m++ ) {
+            RayCollision hit = GetRayCollisionMesh( ray, mp->model.meshes[m], transform );
+            if ( hit.hit && hit.point.y > highestY ) {
+                highestY = hit.point.y;
+            }
+        }
+
+    }
+
+    return highestY;
+
 }
