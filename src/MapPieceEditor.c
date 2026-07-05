@@ -33,6 +33,7 @@ static Vector3 snapPositionToPieceFace( MapPiece *target, Vector3 normal, MapPie
 static void clearMapPieceGizmoSelection( MapPiece *mp );
 static void toggleMapPieceSelection( MapPiece *mp );
 static void applyGroupTranslateDelta( Vector3 currentOffset );
+static void applyGroupRotation( MapPiece *mp, Vector3 axisDir, float angleDeg );
 
 static bool selectGizmoAxisFromSelectedMapPiece( MapPiece *mp, Camera *camera );
 static void performGizmoOperation( MapPiece *mp, Camera *camera );
@@ -47,10 +48,15 @@ static MapPiece *selectedMapPiece = NULL;
 static char mpPropTextBuf[9][32] = { 0 };   // text buffers for 9 fields
 static int mpPropActiveField = -1;          // the current field being edited (-1 = none)
 
-// rest of a multi-selection (Ctrl+click) -- only ever moved together with
-// the primary, in translate mode; rotate/scale/duplicate/remove ignore them
+// rest of a multi-selection (Ctrl+click) -- moved together with the primary
+// in translate mode, and orbited together with it in rotate mode; scale/
+// duplicate/remove still ignore them (see the design discussion this came
+// from: scaling a group makes nearby pieces interpenetrate, so it was left
+// single-piece-only on purpose)
 static MapPiece *extraSelectedMapPieces[MAX_SELECTED_MAP_PIECES];
 static int extraSelectedMapPieceCount = 0;
+static Vector3 extraDragStartPos[MAX_SELECTED_MAP_PIECES];  // each extra's pos/rot at the start of
+static Vector3 extraDragStartRot[MAX_SELECTED_MAP_PIECES];  // the current drag, for group rotation
 
 static GizmoMode gizmoMode = GIZMO_MODE_TRANSLATE;
 
@@ -61,6 +67,7 @@ static Vector3 gizmoDragStartRot = { 0 };
 static Vector3 gizmoDragStartSca = { 0 };
 static Vector3 gizmoDragStartPlaneHit = { 0 };
 static Vector3 gizmoDragLastGroupOffset = { 0 };  // last frame's translate offset, so the group can move by the delta between frames
+static Vector3 gizmoDragGroupPivot = { 0 };        // centroid of the whole group (primary + extras) at drag start, used as the pivot for group rotation
 static float gizmoDragStartT = 0.0f;
 static float gizmoDragAccum = 0.0f;
 
@@ -414,6 +421,51 @@ static void applyGroupTranslateDelta( Vector3 currentOffset ) {
 
 }
 
+// orbits every piece in the group (the primary included) around their
+// shared centroid (gizmoDragGroupPivot, fixed for the whole drag), and
+// spins each one in place by the same angle -- like a rigid set of blocks
+// turning together, not just scattering positions around a point.
+//
+// math: to rotate a point P around a pivot C by an axis/angle, first move
+// to "pivot-relative" coordinates (P - C), rotate THAT vector around the
+// origin (Vector3RotateByAxisAngle -- this is Rodrigues' rotation formula,
+// the standard way to rotate a vector around an arbitrary axis), then move
+// back (+ C). We always rotate the ORIGINAL start-of-drag vector by the
+// TOTAL angle so far (not frame-by-frame), same reasoning as
+// gizmoDragStartPos/Rot elsewhere -- avoids compounding floating-point
+// drift and matches "how far have we turned since the click".
+//
+// no-ops when there's no group (extraSelectedMapPieceCount == 0): a single
+// selected piece keeps rotating in place exactly as before, since its own
+// centroid is itself and relPos is always the zero vector.
+static void applyGroupRotation( MapPiece *mp, Vector3 axisDir, float angleDeg ) {
+
+    if ( extraSelectedMapPieceCount == 0 ) {
+        return;
+    }
+
+    float angleRad = angleDeg * DEG2RAD;
+
+    Vector3 relPos = Vector3Subtract( gizmoDragStartPos, gizmoDragGroupPivot );
+    mp->pos = Vector3Add( gizmoDragGroupPivot, Vector3RotateByAxisAngle( relPos, axisDir, angleRad ) );
+
+    for ( int i = 0; i < extraSelectedMapPieceCount; i++ ) {
+
+        MapPiece *extra = extraSelectedMapPieces[i];
+
+        Vector3 extraRelPos = Vector3Subtract( extraDragStartPos[i], gizmoDragGroupPivot );
+        extra->pos = Vector3Add( gizmoDragGroupPivot, Vector3RotateByAxisAngle( extraRelPos, axisDir, angleRad ) );
+
+        // spins the piece by the same amount as the primary's own mp->rot
+        // update just above, so the group turns together rigidly
+        extra->rot = Vector3Add( extraDragStartRot[i], Vector3Scale( axisDir, angleDeg ) );
+
+        extra->update( extra );
+
+    }
+
+}
+
 static void performGizmoOperation( MapPiece *mp, Camera *camera ) {
 
     const float rotateAmount = 1.0f;
@@ -434,6 +486,17 @@ static void performGizmoOperation( MapPiece *mp, Camera *camera ) {
         gizmoDragStartSca = mp->sca;
         gizmoDragAccum = 0.0f;
         gizmoDragLastGroupOffset = (Vector3) { 0 };
+
+        // group rotation pivot: the centroid of primary + extras' starting
+        // positions, computed once here (not recomputed every frame) so it
+        // stays fixed even as the group rotates around it
+        gizmoDragGroupPivot = mp->pos;
+        for ( int i = 0; i < extraSelectedMapPieceCount; i++ ) {
+            extraDragStartPos[i] = extraSelectedMapPieces[i]->pos;
+            extraDragStartRot[i] = extraSelectedMapPieces[i]->rot;
+            gizmoDragGroupPivot = Vector3Add( gizmoDragGroupPivot, extraDragStartPos[i] );
+        }
+        gizmoDragGroupPivot = Vector3Scale( gizmoDragGroupPivot, 1.0f / ( extraSelectedMapPieceCount + 1 ) );
     }
 
     if ( mp->gizmo.center.selected ) {
@@ -568,6 +631,8 @@ static void performGizmoOperation( MapPiece *mp, Camera *camera ) {
             float amount = rotateAmount * gizmoDragAccum;
             if ( snap ) amount = roundf( amount / rotateSnap ) * rotateSnap;
             mp->rot = Vector3Add( gizmoDragStartRot, Vector3Scale( axisDir, amount ) );
+
+            applyGroupRotation( mp, axisDir, amount );
 
         } else if ( gizmoMode == GIZMO_MODE_SCALE ) {
 
