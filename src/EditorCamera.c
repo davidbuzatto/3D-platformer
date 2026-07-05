@@ -14,8 +14,8 @@
 
 static float cameraYaw               = 90.0f;   // XZ plane angle (degrees)
 static float cameraPitch             = 20.0f;   // pitch angle (degrees)
-static float cameraDistance          = 8.0f;    // current (smoothed) distance to the target
-static float cameraTargetDistance    = 8.0f;    // desired distance, set instantly by the wheel
+static float cameraDistance          = 16.0f;    // current (smoothed) distance to the target
+static float cameraTargetDistance    = 16.0f;   // desired distance, set instantly by the wheel
 static float cameraOrbitSpeed        = 0.2f;    // degrees per pixel (mouse movement)
 static float cameraZoomSpeed         = 1.0f;    // units per wheel notch
 static float cameraZoomSmoothing     = 10.0f;   // how fast distance chases the target (per second)

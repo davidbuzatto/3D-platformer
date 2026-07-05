@@ -48,6 +48,7 @@ typedef enum {
 static void drawEditorHud( void );
 
 static bool drawDebugInfo = true;
+static bool playMode = false;
 
 // editor state
 static EditorMode editorMode = EDITOR_MODE_SELECT_MAP_PIECE;
@@ -137,6 +138,8 @@ GameWorld *createGameWorld( void ) {
         loadMap( MAP_FILE_PATH, gw, CENTER_LOADED_MAP );
     }
 
+    initPlayer( &gw->player, (Vector3) { 4.05, 5.0f, 4.0f } );
+
     gw->camera = (Camera3D) {
         .fovy = 60.0f,
         .position = (Vector3) { 0.0f, 5.0f, 8.0f },
@@ -170,6 +173,16 @@ void updateGameWorld( GameWorld *gw, float delta ) {
 
     Camera *camera = &gw->camera;
     updateEditorCamera( camera, delta );
+
+    if ( IsKeyPressed( KEY_F10 ) ) {
+        playMode = !playMode;
+    }
+
+    if ( playMode ) {
+        gw->player.input( &gw->player, camera );
+        gw->player.update( &gw->player, delta );
+        return;
+    }
 
     for ( int i = 0; i < gw->mapPiecesCount; i++ ) {
         gw->mapPieces[i].update( &gw->mapPieces[i] );
@@ -262,6 +275,7 @@ void drawGameWorld( GameWorld *gw ) {
     for ( int i = 0; i < gw->mapPiecesCount; i++ ) {
         gw->mapPieces[i].draw( &gw->mapPieces[i], currentGizmoOperationMode );
     }
+    gw->player.draw( &gw->player );
     if ( drawDebugInfo ) {
         DrawGrid( 100, 1 );
     }

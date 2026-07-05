@@ -7,13 +7,18 @@
  */
 #pragma once
 
+#include "raylib/raylib.h"
+
 #include "MapPiece.h"
+#include "Player.h"
 
 typedef struct GameWorld {
 
     int maxMapPieces;
     int mapPiecesCount;
     MapPiece *mapPieces;
+
+    Player player;
 
     Camera3D camera;
     
