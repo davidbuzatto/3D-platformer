@@ -23,10 +23,16 @@
 #include "Gizmo.h"
 #include "ResourceManager.h"
 
+#define MAX_SELECTED_MAP_PIECES 256
+
 static MapPiece *getMapPieceFromRay( GameWorld *gw );
 static RayCollision getAddRayCollisionFromRay( GameWorld *gw, MapPiece **outTarget );
 static bool getNearestMapPieceHit( GameWorld *gw, Ray ray, MapPiece **outMp, RayCollision *outRc );
 static Vector3 snapPositionToPieceFace( MapPiece *target, Vector3 normal, MapPieceModelType modelType );
+
+static void clearMapPieceGizmoSelection( MapPiece *mp );
+static void toggleMapPieceSelection( MapPiece *mp );
+static void applyGroupTranslateDelta( Vector3 currentOffset );
 
 static bool selectGizmoAxisFromSelectedMapPiece( MapPiece *mp, Camera *camera );
 static void performGizmoOperation( MapPiece *mp, Camera *camera );
@@ -34,10 +40,17 @@ static float closestPointOnAxisToRay( Vector3 lineOrigin, Vector3 axisDir, Ray r
 
 static Rectangle getMapPiecePropertiesPanelRec( void );
 
-// selected map piece to perform operations
+// selected map piece to perform operations -- the "primary" of the
+// selection: the one the gizmo is anchored to, and the only one rotate/
+// scale/duplicate/remove/the properties panel act on
 static MapPiece *selectedMapPiece = NULL;
 static char mpPropTextBuf[9][32] = { 0 };   // text buffers for 9 fields
 static int mpPropActiveField = -1;          // the current field being edited (-1 = none)
+
+// rest of a multi-selection (Ctrl+click) -- only ever moved together with
+// the primary, in translate mode; rotate/scale/duplicate/remove ignore them
+static MapPiece *extraSelectedMapPieces[MAX_SELECTED_MAP_PIECES];
+static int extraSelectedMapPieceCount = 0;
 
 static GizmoMode gizmoMode = GIZMO_MODE_TRANSLATE;
 
@@ -47,6 +60,7 @@ static Vector3 gizmoDragStartPos = { 0 };
 static Vector3 gizmoDragStartRot = { 0 };
 static Vector3 gizmoDragStartSca = { 0 };
 static Vector3 gizmoDragStartPlaneHit = { 0 };
+static Vector3 gizmoDragLastGroupOffset = { 0 };  // last frame's translate offset, so the group can move by the delta between frames
 static float gizmoDragStartT = 0.0f;
 static float gizmoDragAccum = 0.0f;
 
@@ -56,17 +70,16 @@ MapPiece *getSelectedMapPiece( void ) {
 
 void deselectSelectedMapPiece( void ) {
     if ( selectedMapPiece != NULL ) {
-        selectedMapPiece->gizmo.xAxis.selected = false;
-        selectedMapPiece->gizmo.zAxis.selected = false;
-        selectedMapPiece->gizmo.yAxis.selected = false;
-        selectedMapPiece->gizmo.center.selected = false;
-        selectedMapPiece->gizmo.xyPlane.selected = false;
-        selectedMapPiece->gizmo.xzPlane.selected = false;
-        selectedMapPiece->gizmo.yzPlane.selected = false;
+        clearMapPieceGizmoSelection( selectedMapPiece );
         selectedMapPiece->selected = false;
+        selectedMapPiece->showGizmo = false;
         selectedMapPiece = NULL;
         performingGizmoOperation = false;
     }
+    for ( int i = 0; i < extraSelectedMapPieceCount; i++ ) {
+        extraSelectedMapPieces[i]->selected = false;
+    }
+    extraSelectedMapPieceCount = 0;
 }
 
 GizmoMode getGizmoMode( void ) {
@@ -98,22 +111,29 @@ void updateMapPieceSelectionAndGizmo( GameWorld *gw, Camera *camera ) {
 
     if ( IsMouseButtonPressed( MOUSE_BUTTON_LEFT ) && !mouseOverProperties ) {
 
-        // priority 1: gizmo operation for selected map piece
+        // priority 1: gizmo operation for the primary selected map piece
         if ( selectedMapPiece != NULL ) {
             if ( selectGizmoAxisFromSelectedMapPiece( selectedMapPiece, camera ) ) {
                 performingGizmoOperation = true;
             }
         }
 
-        // priority 2: select a map piece
+        // priority 2: select/add to the selection
         if ( !performingGizmoOperation ) {
 
             MapPiece *mp = getMapPieceFromRay( gw );
 
             if ( mp != NULL ) {
-                deselectSelectedMapPiece();
-                selectedMapPiece = mp;
-                selectedMapPiece->selected = true;
+                if ( IsKeyDown( KEY_LEFT_CONTROL ) ) {
+                    // Ctrl+click toggles mp in/out of the group, instead of
+                    // replacing the whole selection
+                    toggleMapPieceSelection( mp );
+                } else {
+                    deselectSelectedMapPiece();
+                    selectedMapPiece = mp;
+                    selectedMapPiece->selected = true;
+                    selectedMapPiece->showGizmo = true;
+                }
             }
 
         }
@@ -122,13 +142,7 @@ void updateMapPieceSelectionAndGizmo( GameWorld *gw, Camera *camera ) {
 
     if ( IsMouseButtonReleased( MOUSE_BUTTON_LEFT ) ) {
         if ( selectedMapPiece != NULL ) {
-            selectedMapPiece->gizmo.xAxis.selected = false;
-            selectedMapPiece->gizmo.zAxis.selected = false;
-            selectedMapPiece->gizmo.yAxis.selected = false;
-            selectedMapPiece->gizmo.center.selected = false;
-            selectedMapPiece->gizmo.xyPlane.selected = false;
-            selectedMapPiece->gizmo.xzPlane.selected = false;
-            selectedMapPiece->gizmo.yzPlane.selected = false;
+            clearMapPieceGizmoSelection( selectedMapPiece );
         }
         performingGizmoOperation = false;
     }
@@ -267,6 +281,65 @@ static Vector3 snapPositionToPieceFace( MapPiece *target, Vector3 normal, MapPie
 
 }
 
+// resets every axis/plane/center handle's "selected" (drag) flag -- shared
+// by deselect, releasing the mouse, and moving a piece in/out of the group
+static void clearMapPieceGizmoSelection( MapPiece *mp ) {
+    mp->gizmo.xAxis.selected = false;
+    mp->gizmo.zAxis.selected = false;
+    mp->gizmo.yAxis.selected = false;
+    mp->gizmo.center.selected = false;
+    mp->gizmo.xyPlane.selected = false;
+    mp->gizmo.xzPlane.selected = false;
+    mp->gizmo.yzPlane.selected = false;
+}
+
+// Ctrl+click handler: adds mp to the selection, or removes it if it's
+// already part of it. The most recently added piece is always the new
+// primary (gizmo owner) -- the piece it bumps out of that role (if any)
+// just becomes a regular member of the group.
+static void toggleMapPieceSelection( MapPiece *mp ) {
+
+    if ( mp == selectedMapPiece ) {
+        // removing the primary -- promote the most recently added extra
+        // (if any), so the group keeps a gizmo to drag
+        clearMapPieceGizmoSelection( mp );
+        mp->selected = false;
+        mp->showGizmo = false;
+        if ( extraSelectedMapPieceCount > 0 ) {
+            selectedMapPiece = extraSelectedMapPieces[--extraSelectedMapPieceCount];
+            selectedMapPiece->showGizmo = true;
+        } else {
+            selectedMapPiece = NULL;
+        }
+        return;
+    }
+
+    for ( int i = 0; i < extraSelectedMapPieceCount; i++ ) {
+        if ( extraSelectedMapPieces[i] == mp ) {
+            // already in the group -- remove it, closing the gap
+            mp->selected = false;
+            for ( int j = i + 1; j < extraSelectedMapPieceCount; j++ ) {
+                extraSelectedMapPieces[j - 1] = extraSelectedMapPieces[j];
+            }
+            extraSelectedMapPieceCount--;
+            return;
+        }
+    }
+
+    // not selected yet -- the previous primary (if any) demotes to a
+    // regular member of the group, and mp becomes the new primary
+    if ( selectedMapPiece != NULL && extraSelectedMapPieceCount < MAX_SELECTED_MAP_PIECES ) {
+        clearMapPieceGizmoSelection( selectedMapPiece );
+        selectedMapPiece->showGizmo = false;
+        extraSelectedMapPieces[extraSelectedMapPieceCount++] = selectedMapPiece;
+    }
+
+    selectedMapPiece = mp;
+    selectedMapPiece->selected = true;
+    selectedMapPiece->showGizmo = true;
+
+}
+
 static bool selectGizmoAxisFromSelectedMapPiece( MapPiece *mp, Camera *camera ) {
 
     mp->gizmo.xAxis.selected = false;
@@ -323,6 +396,24 @@ static bool selectGizmoAxisFromSelectedMapPiece( MapPiece *mp, Camera *camera ) 
 
 }
 
+// applies the change in the primary's translate offset (since last frame)
+// to every other piece in the group, so they move together without each
+// needing their own drag-start bookkeeping -- only called from the
+// translate branches below, so rotate/scale never touch the group
+static void applyGroupTranslateDelta( Vector3 currentOffset ) {
+
+    Vector3 delta = Vector3Subtract( currentOffset, gizmoDragLastGroupOffset );
+
+    for ( int i = 0; i < extraSelectedMapPieceCount; i++ ) {
+        MapPiece *extra = extraSelectedMapPieces[i];
+        extra->pos = Vector3Add( extra->pos, delta );
+        extra->update( extra );
+    }
+
+    gizmoDragLastGroupOffset = currentOffset;
+
+}
+
 static void performGizmoOperation( MapPiece *mp, Camera *camera ) {
 
     const float rotateAmount = 1.0f;
@@ -342,6 +433,7 @@ static void performGizmoOperation( MapPiece *mp, Camera *camera ) {
         gizmoDragStartRot = mp->rot;
         gizmoDragStartSca = mp->sca;
         gizmoDragAccum = 0.0f;
+        gizmoDragLastGroupOffset = (Vector3) { 0 };
     }
 
     if ( mp->gizmo.center.selected ) {
@@ -410,6 +502,7 @@ static void performGizmoOperation( MapPiece *mp, Camera *camera ) {
                 }
 
                 mp->pos = Vector3Add( gizmoDragStartPos, offset );
+                applyGroupTranslateDelta( offset );
 
             }
 
@@ -456,7 +549,9 @@ static void performGizmoOperation( MapPiece *mp, Camera *camera ) {
         float totalOffset = currentT - gizmoDragStartT;
         if ( snap ) totalOffset = roundf( totalOffset / translateSnap ) * translateSnap;
 
-        mp->pos = Vector3Add( gizmoDragStartPos, Vector3Scale( axisDir, totalOffset ) );
+        Vector3 offset = Vector3Scale( axisDir, totalOffset );
+        mp->pos = Vector3Add( gizmoDragStartPos, offset );
+        applyGroupTranslateDelta( offset );
 
     } else {
 
@@ -566,6 +661,15 @@ void drawMapPiecePropertiesPanel( void ) {
                 BLACK
             );
             break;
+    }
+
+    if ( extraSelectedMapPieceCount > 0 ) {
+        DrawTextEx(
+            rm->baseFont,
+            TextFormat( "(+%d)", extraSelectedMapPieceCount ),
+            (Vector2) { mpPropPos.x + 250, mpPropPos.y + mpPropMarginTop },
+            20, 0.0f, DARKGRAY
+        );
     }
 
     #ifndef USE_GUI
@@ -693,5 +797,6 @@ void duplicateSelectedMapPiece( GameWorld *gw, DuplicateOperation axis, float si
     deselectSelectedMapPiece();
     selectedMapPiece = copy;
     selectedMapPiece->selected = true;
+    selectedMapPiece->showGizmo = true;
 
 }

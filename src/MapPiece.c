@@ -68,6 +68,7 @@ void initMapPiece( MapPiece *mp, Vector3 pos, MapPieceModelType modelType ) {
 
     mp->gizmoOffset = (Vector3) { 0, mp->bb.max.y - mp->bb.min.y + 0.1f, 0 };
     mp->selected = false;
+    mp->showGizmo = false;
 
     mp->update = update;
     mp->draw = draw;
@@ -102,7 +103,9 @@ static void draw( MapPiece *mp, GizmoOperationMode mode ) {
 
     if ( mp->selected ) {
         DrawBoundingBox( mp->bb, BLACK );
-        drawGizmo( &mp->gizmo, mode );
+        if ( mp->showGizmo ) {
+            drawGizmo( &mp->gizmo, mode );
+        }
     }
 
 }

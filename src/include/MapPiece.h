@@ -180,7 +180,9 @@ struct MapPiece {
 
     Gizmo gizmo;
     Vector3 gizmoOffset;
-    bool selected;
+    bool selected;    // draws the selection highlight (bounding box)
+    bool showGizmo;   // also draws/allows interacting with this piece's gizmo --
+                       // only the "primary" piece in a multi-selection has this on
 
     void (*update)( MapPiece *mp );
     void (*draw)( MapPiece *mp, GizmoOperationMode mode );
