@@ -1,2 +1,15 @@
+Duplicate map piece -> reposition using key to not overlap;
+    Right Shift + Left  -> duplicate left of X (no overlap);
+    Right Shitf + Right -> duplicate right of X (no overlap);
+    Right Shitf + Up    -> duplicate far of Z (no overlap);
+    Right Shitf + Down  -> duplicate near of Z (no overlap);
+    Right Shitf + PgUp  -> duplicate top of Y (no overlap);
+    Right Shitf + PgDw  -> duplicate bottom of Y (no overlap);
+
+Piece snap when adding:
+    Which plane?
+    Using grid as target;
+    Using another piece as target;
+
 Improve gizmo operations:
     Multiselection for translations;

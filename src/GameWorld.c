@@ -194,9 +194,9 @@ void updateGameWorld( GameWorld *gw, float delta ) {
             deselectSelectedMapPiece();
         }
 
-        if ( IsKeyPressed( KEY_ONE ) )   setGizmoMode( GIZMO_MODE_TRANSLATE );
-        if ( IsKeyPressed( KEY_TWO ) )   setGizmoMode( GIZMO_MODE_ROTATE );
-        if ( IsKeyPressed( KEY_THREE ) ) setGizmoMode( GIZMO_MODE_SCALE );
+        if ( IsKeyPressed( KEY_F1 ) ) setGizmoMode( GIZMO_MODE_TRANSLATE );
+        if ( IsKeyPressed( KEY_F2 ) ) setGizmoMode( GIZMO_MODE_ROTATE );
+        if ( IsKeyPressed( KEY_F3 ) ) setGizmoMode( GIZMO_MODE_SCALE );
 
     } else if ( editorMode == EDITOR_MODE_ADD_MAP_PIECE ) {
 
@@ -208,22 +208,22 @@ void updateGameWorld( GameWorld *gw, float delta ) {
         updateMapPieceModelPicker();
     }
 
-    if ( IsKeyPressed( KEY_F1 ) ) {
+    if ( IsKeyPressed( KEY_F5 ) ) {
         editorMode = EDITOR_MODE_SELECT_MAP_PIECE;
         deselectSelectedMapPiece();
     }
 
-    if ( IsKeyPressed( KEY_F2 ) ) {
+    if ( IsKeyPressed( KEY_F6 ) ) {
         editorMode = EDITOR_MODE_ADD_MAP_PIECE;
         deselectSelectedMapPiece();
     }
 
-    if ( IsKeyPressed( KEY_F3 ) ) {
+    if ( IsKeyPressed( KEY_F7 ) ) {
         editorMode = EDITOR_MODE_SELECT_MAP_PIECE_MODEL_TYPE;
         deselectSelectedMapPiece();
     }
 
-    if ( IsKeyPressed( KEY_F6 ) ) drawDebugInfo = !drawDebugInfo;
+    if ( IsKeyPressed( KEY_F9 ) ) drawDebugInfo = !drawDebugInfo;
 
     if ( IsKeyDown( KEY_LEFT_CONTROL ) && IsKeyPressed( KEY_S ) ) {
         saveMap( MAP_FILE_PATH, gw );
