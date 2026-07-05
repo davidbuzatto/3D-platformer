@@ -24,8 +24,9 @@
 #include "ResourceManager.h"
 
 static MapPiece *getMapPieceFromRay( GameWorld *gw );
-static RayCollision getAddRayCollisionFromRay( GameWorld *gw );
+static RayCollision getAddRayCollisionFromRay( GameWorld *gw, MapPiece **outTarget );
 static bool getNearestMapPieceHit( GameWorld *gw, Ray ray, MapPiece **outMp, RayCollision *outRc );
+static Vector3 snapPositionToPieceFace( MapPiece *target, Vector3 normal, MapPieceModelType modelType );
 
 static bool selectGizmoAxisFromSelectedMapPiece( MapPiece *mp, Camera *camera );
 static void performGizmoOperation( MapPiece *mp, Camera *camera );
@@ -140,16 +141,29 @@ void updateMapPieceSelectionAndGizmo( GameWorld *gw, Camera *camera ) {
 
 void addMapPiece( GameWorld *gw, MapPieceModelType modelType ) {
 
-    RayCollision rc = getAddRayCollisionFromRay( gw );
+    MapPiece *target = NULL;
+    RayCollision rc = getAddRayCollisionFromRay( gw, &target );
 
-    if ( rc.hit && gw->mapPiecesCount < gw->maxMapPieces ) {
-        initMapPiece(
-            &gw->mapPieces[gw->mapPiecesCount],
-            rc.point,
-            modelType
-        );
-        gw->mapPiecesCount++;
+    if ( !rc.hit || gw->mapPiecesCount >= gw->maxMapPieces ) {
+        return;
     }
+
+    Vector3 pos = rc.point;
+
+    if ( IsKeyDown( KEY_LEFT_SHIFT ) ) {
+        if ( target != NULL ) {
+            pos = snapPositionToPieceFace( target, rc.normal, modelType );
+        } else {
+            // landed on the ground plane -- snap X/Z to a 0.5 grid instead
+            // of the raw (arbitrary) raycast point
+            const float gridSnap = 0.5f;
+            pos.x = roundf( pos.x / gridSnap ) * gridSnap;
+            pos.z = roundf( pos.z / gridSnap ) * gridSnap;
+        }
+    }
+
+    initMapPiece( &gw->mapPieces[gw->mapPiecesCount], pos, modelType );
+    gw->mapPiecesCount++;
 
 }
 
@@ -182,13 +196,17 @@ static MapPiece *getMapPieceFromRay( GameWorld *gw ) {
     return mp;
 }
 
-static RayCollision getAddRayCollisionFromRay( GameWorld *gw ) {
+static RayCollision getAddRayCollisionFromRay( GameWorld *gw, MapPiece **outTarget ) {
 
     Ray ray = GetScreenToWorldRay( GetMousePosition(), gw->camera );
     RayCollision rc;
 
-    if ( getNearestMapPieceHit( gw, ray, NULL, &rc ) ) {
+    if ( getNearestMapPieceHit( gw, ray, outTarget, &rc ) ) {
         return rc;
+    }
+
+    if ( outTarget != NULL ) {
+        *outTarget = NULL;
     }
 
     // does not hit any piece, falls back to the grid (y = 0)
@@ -222,6 +240,30 @@ static bool getNearestMapPieceHit( GameWorld *gw, Ray ray, MapPiece **outMp, Ray
     if ( outRc != NULL ) *outRc = nearestRc;
 
     return nearestMp != NULL;
+
+}
+
+// centers the new piece on the two axes perpendicular to the hit face, and
+// flushes it against the face along the axis the hit normal points to --
+// localBB is the new piece's own (unscaled) box, since it doesn't exist yet
+static Vector3 snapPositionToPieceFace( MapPiece *target, Vector3 normal, MapPieceModelType modelType ) {
+
+    BoundingBox localBB = GetModelBoundingBox( rm->mapPieceModelAtlas[modelType] );
+    Vector3 pos = { 0 };
+
+    if ( normal.x > 0.0f )      pos.x = target->bb.max.x - localBB.min.x;
+    else if ( normal.x < 0.0f ) pos.x = target->bb.min.x - localBB.max.x;
+    else                        pos.x = ( target->bb.min.x + target->bb.max.x ) * 0.5f - ( localBB.min.x + localBB.max.x ) * 0.5f;
+
+    if ( normal.y > 0.0f )      pos.y = target->bb.max.y - localBB.min.y;
+    else if ( normal.y < 0.0f ) pos.y = target->bb.min.y - localBB.max.y;
+    else                        pos.y = ( target->bb.min.y + target->bb.max.y ) * 0.5f - ( localBB.min.y + localBB.max.y ) * 0.5f;
+
+    if ( normal.z > 0.0f )      pos.z = target->bb.max.z - localBB.min.z;
+    else if ( normal.z < 0.0f ) pos.z = target->bb.min.z - localBB.max.z;
+    else                        pos.z = ( target->bb.min.z + target->bb.max.z ) * 0.5f - ( localBB.min.z + localBB.max.z ) * 0.5f;
+
+    return pos;
 
 }
 
