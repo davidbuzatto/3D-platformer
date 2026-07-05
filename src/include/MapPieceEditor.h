@@ -48,4 +48,11 @@ void removeMapPiece( MapPiece *mp, GameWorld *gw );
  */
 void drawMapPiecePropertiesPanel( void );
 
+/**
+ * @brief Clones the selected map piece (same model, rotation and scale) and
+ * offsets the copy along the given axis by its own bounding-box size, so it
+ * sits flush against the original with no gap or overlap. The copy becomes
+ * the new selection, so repeating the same call chains a row/column/stack.
+ * Does nothing if no piece is selected.
+ */
 void duplicateSelectedMapPiece( GameWorld *gw, DuplicateOperation axis, float sign );

@@ -617,6 +617,9 @@ void duplicateSelectedMapPiece( GameWorld *gw, DuplicateOperation axis, float si
         return;
     }
 
+    // bb is already in world space and reflects the current scale, so this
+    // offset keeps the copy flush against the original with no gap/overlap,
+    // regardless of how mp has been scaled
     float size = 0.0f;
     switch ( axis ) {
         case DUPLICATE_OPERATION_X: size = mp->bb.max.x - mp->bb.min.x; break;
@@ -637,7 +640,14 @@ void duplicateSelectedMapPiece( GameWorld *gw, DuplicateOperation axis, float si
     copy->sca = mp->sca;
     gw->mapPiecesCount++;
 
-    // select the copy to allow operation repetition
+    // initMapPiece() only sets up bb/gizmo/model.transform for the default
+    // rot/sca -- update() re-derives them for the rot/sca just copied above,
+    // so the duplicate doesn't render for one frame with the wrong shape
+    copy->update( copy );
+
+    // select the copy instead of the original, so pressing the same
+    // direction again chains a whole row/column/stack from where we just
+    // placed this one
     deselectSelectedMapPiece();
     selectedMapPiece = copy;
     selectedMapPiece->selected = true;
