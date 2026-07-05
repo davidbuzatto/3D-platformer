@@ -16,7 +16,7 @@ static const float planeThickness = 0.02f;  // half-thickness of the flat plane 
 // towards the center -- see drawAxisHandle) and how wide its base is
 // relative to the handle radius
 static const float translateConeLengthFactor = 2.0f;
-static const float translateConeRadiusFactor  = 0.8f;
+static const float translateConeRadiusFactor = 0.8f;
 
 void updateGizmo( Gizmo *ma, Vector3 mapPiecePos, Vector3 gizmoOffset ) {
 
