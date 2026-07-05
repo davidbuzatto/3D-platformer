@@ -6,4 +6,4 @@
 // scale value boxes). Lives here, not in a single .c file, because more
 // than one translation unit (GameWorld.c, MapPieceEditor.c) needs to agree
 // on whether it's defined.
-//#define USE_GUI
+#define USE_GUI
