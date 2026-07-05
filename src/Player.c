@@ -98,7 +98,10 @@ static void update( Player *p, MapPiece *mapPieces, int mapPiecesCount, float de
     p->vel.y += gravity * delta;
     p->pos = Vector3Add( p->pos, Vector3Scale( p->vel, delta ) );
 
-    // probe
+    // probe from slightly above where the player was before this frame's
+    // movement -- guarantees the ray starts above any surface it's resting
+    // on, instead of starting already inside it (which is what was
+    // breaking the landing check)
     Vector3 probeOrigin = p->pos;
     probeOrigin.y = oldY + 0.05f;
 
