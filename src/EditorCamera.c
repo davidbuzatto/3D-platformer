@@ -20,7 +20,7 @@ static float cameraOrbitSpeed        = 0.2f;    // degrees per pixel (mouse move
 static float cameraZoomSpeed         = 1.0f;    // units per wheel notch
 static float cameraZoomSmoothing     = 10.0f;   // how fast distance chases the target (per second)
 static float cameraPanSpeed          = 5.0f;    // units per second
-static float cameraMousePanSpeed     = 0.01f;  // world units per pixel of drag
+static float cameraMousePanSpeed     = 0.005f;  // world units per pixel of drag
 static const float cameraPitchMin    = -85.0f;
 static const float cameraPitchMax    = 85.0f;
 static const float cameraDistanceMin = 1.5f;
@@ -84,12 +84,16 @@ void updateEditorCamera( Camera *camera, float delta ) {
 
         Vector2 mouseDelta = GetMouseDelta();
 
+        // scaled by distance so a pixel of drag covers the same apparent
+        // screen-space amount whether zoomed in close or far away
+        float panScale = cameraMousePanSpeed * cameraDistance;
+
         // moves opposite to the drag on the right axis, and with the drag on
         // the up axis -- makes the point under the cursor stay under the
         // cursor, like grabbing the viewport
         Vector3 offset = Vector3Add(
-            Vector3Scale( right, -mouseDelta.x * cameraMousePanSpeed ),
-            Vector3Scale( up,     mouseDelta.y * cameraMousePanSpeed )
+            Vector3Scale( right, -mouseDelta.x * panScale ),
+            Vector3Scale( up,     mouseDelta.y * panScale )
         );
 
         camera->target = Vector3Add( camera->target, offset );
