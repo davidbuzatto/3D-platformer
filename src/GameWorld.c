@@ -30,7 +30,8 @@
 #include "MapPieceModelPicker.h"
 #include "MapPieceEditor.h"
 
-#define MAP_FILE_PATH "resources/maps/testMap.txt"
+#define MAP_FILE_PATH "resources/maps/collisionTestMap.txt"
+#define CENTER_LOADED_MAP false
 
 typedef enum {
     EDITOR_MODE_SELECT_MAP_PIECE,
@@ -133,7 +134,7 @@ GameWorld *createGameWorld( void ) {
         }
 
     } else if ( mapStartMode == MAP_START_MODE_LOAD_TEST_MAP ) {
-        loadMap( MAP_FILE_PATH, gw, false );
+        loadMap( MAP_FILE_PATH, gw, CENTER_LOADED_MAP );
     }
 
     gw->camera = (Camera3D) {
@@ -230,7 +231,7 @@ void updateGameWorld( GameWorld *gw, float delta ) {
 
     if ( IsKeyDown( KEY_LEFT_CONTROL ) && IsKeyPressed( KEY_O ) ) {
         deselectSelectedMapPiece();
-        loadMap( MAP_FILE_PATH, gw, false );
+        loadMap( MAP_FILE_PATH, gw, CENTER_LOADED_MAP );
     }
 
 }
@@ -246,7 +247,7 @@ void drawGameWorld( GameWorld *gw ) {
     GizmoOperationMode currentGizmoOperationMode = toGizmoOperationMode( getGizmoMode() );
 
     BeginMode3D( gw->camera );
-    DrawModel( rm->seaModel, (Vector3) { 0.0f, 0.15f, 0.0f }, 1.0f, WHITE );
+    //DrawModel( rm->seaModel, (Vector3) { 0.0f, 0.15f, 0.0f }, 1.0f, WHITE );
     for ( int i = 0; i < gw->mapPiecesCount; i++ ) {
         gw->mapPieces[i].draw( &gw->mapPieces[i], currentGizmoOperationMode );
     }
