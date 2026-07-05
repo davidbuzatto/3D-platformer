@@ -20,6 +20,7 @@ static float cameraOrbitSpeed        = 0.2f;    // degrees per pixel (mouse move
 static float cameraZoomSpeed         = 1.0f;    // units per wheel notch
 static float cameraZoomSmoothing     = 10.0f;   // how fast distance chases the target (per second)
 static float cameraPanSpeed          = 5.0f;    // units per second
+static float cameraMousePanSpeed     = 0.01f;  // world units per pixel of drag
 static const float cameraPitchMin    = -85.0f;
 static const float cameraPitchMax    = 85.0f;
 static const float cameraDistanceMin = 1.5f;
@@ -50,6 +51,8 @@ void updateEditorCamera( Camera *camera, float delta ) {
     // stands in for the future player position
     Vector3 forward = { -cosf( yawRad ), 0.0f, -sinf( yawRad ) };
     Vector3 right   = {  sinf( yawRad ), 0.0f, -cosf( yawRad ) };
+    Vector3 up      = { -cosf( yawRad ) * sinf( pitchRad ), cosf( pitchRad ), -sinf( yawRad ) * sinf( pitchRad ) };
+
     float panAmount = cameraPanSpeed * delta;
 
     if ( IsKeyDown( KEY_W ) ) {
@@ -75,6 +78,22 @@ void updateEditorCamera( Camera *camera, float delta ) {
     }
     if ( IsKeyDown( KEY_Q ) ) {
         camera->target.y -= panAmount;
+    }
+
+    if ( IsMouseButtonDown( MOUSE_BUTTON_MIDDLE ) ) {
+
+        Vector2 mouseDelta = GetMouseDelta();
+
+        // moves opposite to the drag on the right axis, and with the drag on
+        // the up axis -- makes the point under the cursor stay under the
+        // cursor, like grabbing the viewport
+        Vector3 offset = Vector3Add(
+            Vector3Scale( right, -mouseDelta.x * cameraMousePanSpeed ),
+            Vector3Scale( up,     mouseDelta.y * cameraMousePanSpeed )
+        );
+
+        camera->target = Vector3Add( camera->target, offset );
+
     }
 
     camera->position.x = camera->target.x + cameraDistance * cosf( pitchRad ) * cosf( yawRad );
