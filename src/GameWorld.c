@@ -243,7 +243,11 @@ void updateGameWorld( GameWorld *gw, float delta ) {
 
     if ( editorMode == EDITOR_MODE_SELECT_MAP_PIECE ) {
 
-        bool mouseOverProperties = selectedMapPiece != NULL && CheckCollisionPointRec( GetMousePosition(), getMapPiecePropertiesPanelRec() );
+        #ifdef USE_GUI
+            bool mouseOverProperties = selectedMapPiece != NULL && CheckCollisionPointRec( GetMousePosition(), getMapPiecePropertiesPanelRec() );
+        #else
+            bool mouseOverProperties = false;
+        #endif
 
         if ( IsMouseButtonPressed( MOUSE_BUTTON_LEFT ) && !mouseOverProperties ) {
 
