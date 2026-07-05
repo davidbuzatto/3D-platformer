@@ -16,11 +16,13 @@ static ResourceManager _rm = { 0 };  // mutable; owned exclusively by this modul
 const ResourceManager * const rm = &_rm;
 
 static void prepareMapPieceModelAtlas( void );
+static void prepareSeaModel( void );
 
 void loadResourcesResourceManager( void ) {
 
     SetTraceLogLevel( LOG_WARNING );
     prepareMapPieceModelAtlas();
+    prepareSeaModel();
     SetTraceLogLevel( LOG_ALL );
 
     _rm.baseFont = LoadFontEx( "resources/fonts/space-mono/SpaceMono-Bold.ttf", 20, NULL, 250 );
@@ -41,6 +43,7 @@ void unloadResourcesResourceManager( void ) {
         UnloadModel( _rm.mapPieceModelAtlas[i] );
     }
     free( _rm.mapPieceModelAtlas );
+    UnloadModel( _rm.seaModel );
     SetTraceLogLevel( LOG_ALL );
 
     UnloadFont( _rm.baseFont );
@@ -212,6 +215,27 @@ static void prepareMapPieceModelAtlas( void ) {
     _rm.mapPieceModelAtlas[currentModel++] = LoadModel( "resources/models/treePineSnowSmall.glb" );
     _rm.mapPieceModelAtlas[currentModel++] = LoadModel( "resources/models/treeSnow.glb" );
     _rm.mapPieceModelAtlasCount = currentModel;
+
+}
+
+void prepareSeaModel( void ) {
+
+    const float seaSize = 100.0f;
+    const float tiling = 3.0f;   // repetitions
+
+    Mesh seaMesh = GenMeshCube( seaSize, 2.0f, seaSize );
+
+    for ( int i = 0; i < seaMesh.vertexCount; i++ ) {
+        seaMesh.texcoords[i] *= tiling;
+    }
+    UpdateMeshBuffer( seaMesh, 1, seaMesh.texcoords, seaMesh.vertexCount * 2 * sizeof( float ), 0 );
+
+    _rm.seaModel = LoadModelFromMesh( seaMesh );
+
+    Texture2D seaTexture = LoadTexture( "resources/images/waterTexture2048.png" );
+    SetTextureWrap( seaTexture, TEXTURE_WRAP_REPEAT );
+    SetTextureFilter( seaTexture, TEXTURE_FILTER_BILINEAR );
+    _rm.seaModel.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = seaTexture;
 
 }
 

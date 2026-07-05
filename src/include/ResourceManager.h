@@ -15,7 +15,8 @@ typedef struct ResourceManager {
 
     int mapPieceModelAtlasCount;
     Model *mapPieceModelAtlas;
-
+    Model seaModel;
+    
     Font baseFont;
 
     Texture2D mapPieceModelAtlasPreviewTexture;

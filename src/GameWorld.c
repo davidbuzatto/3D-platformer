@@ -12,9 +12,14 @@
 
 #include "raylib/raylib.h"
 #include "raylib/raymath.h"
-//#define RAYGUI_IMPLEMENTATION    // to use raygui, comment these three lines.
-//#include "raylib/raygui.h"       // other compilation units must only include
-//#undef RAYGUI_IMPLEMENTATION     // raygui.h
+
+//#define USE_GUI
+
+#ifdef USE_GUI
+#define RAYGUI_IMPLEMENTATION    // to use raygui, comment these three lines.
+#include "raylib/raygui.h"       // other compilation units must only include
+#undef RAYGUI_IMPLEMENTATION     // raygui.h
+#endif
 
 #include "GameWorld.h"
 #include "Gizmo.h"
@@ -55,7 +60,9 @@ static GizmoOperationMode toGizmoOperationMode( EditorMode mode );
 static float closestPointOnAxisToRay( Vector3 lineOrigin, Vector3 axisDir, Ray ray );
 
 static void saveMap( const char *filePath, GameWorld *gw );
-static void loadMap( const char *filePath, GameWorld *gw );
+static void loadMap( const char *filePath, GameWorld *gw, bool centralizeAfterLoad );
+
+static Rectangle getMapPiecePropertiesPanelRec( void );
 
 static bool drawDebugInfo = true;
 
@@ -83,6 +90,8 @@ static float gizmoDragAccum = 0.0f;
 
 // selected map piece to perform operations
 static MapPiece *selectedMapPiece = NULL;
+static char mpPropTextBuf[9][32] = { 0 };   // text buffers for 9 fields
+static int mpPropActiveField = -1;          // the current field being edited (-1 = none)
 
 // variables for map piece model selection
 static MapPieceModelType selectedMapPieceModelType = MODEL_TYPE_BLOCK_GRASS;
@@ -183,7 +192,7 @@ GameWorld *createGameWorld( void ) {
         }
 
     } else if ( mapStartMode == MAP_START_MODE_LOAD_TEST_MAP ) {
-        loadMap( MAP_FILE_PATH, gw );
+        loadMap( MAP_FILE_PATH, gw, false );
     }
 
     gw->camera = (Camera3D) {
@@ -234,7 +243,9 @@ void updateGameWorld( GameWorld *gw, float delta ) {
 
     if ( editorMode == EDITOR_MODE_SELECT_MAP_PIECE ) {
 
-        if ( IsMouseButtonPressed( MOUSE_BUTTON_LEFT ) ) {
+        bool mouseOverProperties = selectedMapPiece != NULL && CheckCollisionPointRec( GetMousePosition(), getMapPiecePropertiesPanelRec() );
+
+        if ( IsMouseButtonPressed( MOUSE_BUTTON_LEFT ) && !mouseOverProperties ) {
 
             // priority 1: gizmo operation for selected map piece
             if ( selectedMapPiece != NULL ) {
@@ -353,8 +364,21 @@ void updateGameWorld( GameWorld *gw, float delta ) {
     }
 
     if ( IsKeyDown( KEY_LEFT_CONTROL ) && IsKeyPressed( KEY_O ) ) {
-        loadMap( MAP_FILE_PATH, gw );
+        loadMap( MAP_FILE_PATH, gw, false );
     }
+
+    // manual adjustments
+    /*if ( IsKeyPressed( KEY_UP ) ) {
+        
+        int adjustIni = 0;
+        int adjustEnd = 72;
+
+        for ( int i = adjustIni; i <= adjustEnd; i++ ) {
+            if ( i < gw->mapPiecesCount ) {
+                gw->mapPieces[i].pos.y += 0.1f;
+            }
+        }
+    }*/
 
 }
 
@@ -369,6 +393,7 @@ void drawGameWorld( GameWorld *gw ) {
     GizmoOperationMode currentGizmoOperationMode = toGizmoOperationMode( gizmoMode );
 
     BeginMode3D( gw->camera );
+    DrawModel( rm->seaModel, (Vector3) { 0.0f, 0.15f, 0.0f }, 1.0f, WHITE );
     for ( int i = 0; i < gw->mapPiecesCount; i++ ) {
         gw->mapPieces[i].draw( &gw->mapPieces[i], currentGizmoOperationMode );
     }
@@ -501,14 +526,14 @@ static void drawEditorHud( void ) {
         Vector2 mpPropPos = { 10, GetScreenHeight() - 120 - mpPropMarginTop };
 
         DrawRectangleRounded(
-            (Rectangle) { mpPropPos.x, mpPropPos.y, 300, 120 },
+            getMapPiecePropertiesPanelRec(),
             0.2f,
             10,
             Fade( WHITE, 0.7f )
         );
 
         DrawRectangleRoundedLinesEx(
-            (Rectangle) { mpPropPos.x, mpPropPos.y, 300, 120 },
+            getMapPiecePropertiesPanelRec(),
             0.2f,
             10,
             2.0f,
@@ -545,36 +570,86 @@ static void drawEditorHud( void ) {
                 break;
         }
 
-        const char *px = TextFormat( "x: %.2f", mp->pos.x );
-        const char *py = TextFormat( "y: %.2f", mp->pos.y );
-        const char *pz = TextFormat( "z: %.2f", mp->pos.z );
+        #ifndef USE_GUI
 
-        DrawTextEx( rm->baseFont, "Position:", (Vector2) { mpPropPos.x + mpPropMarginLeft, mpPropPos.y + mpPropMarginTop + 20 }, 20, 0.0f, BLACK );
-        DrawTextEx( rm->baseFont, px,          (Vector2) { mpPropPos.x + mpPropMarginLeft, mpPropPos.y + mpPropMarginTop + 40 }, 20, 0.0f, MAROON );
-        DrawTextEx( rm->baseFont, py,          (Vector2) { mpPropPos.x + mpPropMarginLeft, mpPropPos.y + mpPropMarginTop + 60 }, 20, 0.0f, DARKGREEN );
-        DrawTextEx( rm->baseFont, pz,          (Vector2) { mpPropPos.x + mpPropMarginLeft, mpPropPos.y + mpPropMarginTop + 80 }, 20, 0.0f, DARKBLUE );
+            const char *px = TextFormat( "x: %.2f", mp->pos.x );
+            const char *py = TextFormat( "y: %.2f", mp->pos.y );
+            const char *pz = TextFormat( "z: %.2f", mp->pos.z );
 
-
-        const char *ax = TextFormat( "x: %.2fº", mp->rot.x );
-        const char *ay = TextFormat( "y: %.2fº", mp->rot.y );
-        const char *az = TextFormat( "z: %.2fº", mp->rot.z );
-
-        mpPropMarginLeft += 100;
-        DrawTextEx( rm->baseFont, "Rotation:", (Vector2) { mpPropPos.x + mpPropMarginLeft, mpPropPos.y + mpPropMarginTop + 20 }, 20, 0.0f, BLACK );
-        DrawTextEx( rm->baseFont, ax,          (Vector2) { mpPropPos.x + mpPropMarginLeft, mpPropPos.y + mpPropMarginTop + 40 }, 20, 0.0f, MAROON );
-        DrawTextEx( rm->baseFont, ay,          (Vector2) { mpPropPos.x + mpPropMarginLeft, mpPropPos.y + mpPropMarginTop + 60 }, 20, 0.0f, DARKGREEN );
-        DrawTextEx( rm->baseFont, az,          (Vector2) { mpPropPos.x + mpPropMarginLeft, mpPropPos.y + mpPropMarginTop + 80 }, 20, 0.0f, DARKBLUE );
+            DrawTextEx( rm->baseFont, "Position:", (Vector2) { mpPropPos.x + mpPropMarginLeft, mpPropPos.y + mpPropMarginTop + 20 }, 20, 0.0f, BLACK );
+            DrawTextEx( rm->baseFont, px,          (Vector2) { mpPropPos.x + mpPropMarginLeft, mpPropPos.y + mpPropMarginTop + 40 }, 20, 0.0f, MAROON );
+            DrawTextEx( rm->baseFont, py,          (Vector2) { mpPropPos.x + mpPropMarginLeft, mpPropPos.y + mpPropMarginTop + 60 }, 20, 0.0f, DARKGREEN );
+            DrawTextEx( rm->baseFont, pz,          (Vector2) { mpPropPos.x + mpPropMarginLeft, mpPropPos.y + mpPropMarginTop + 80 }, 20, 0.0f, DARKBLUE );
 
 
-        const char *sx = TextFormat( "x: %.2f", mp->sca.x );
-        const char *sy = TextFormat( "y: %.2f", mp->sca.y );
-        const char *sz = TextFormat( "z: %.2f", mp->sca.z );
+            const char *ax = TextFormat( "x: %.2fº", mp->rot.x );
+            const char *ay = TextFormat( "y: %.2fº", mp->rot.y );
+            const char *az = TextFormat( "z: %.2fº", mp->rot.z );
 
-        mpPropMarginLeft += 100;
-        DrawTextEx( rm->baseFont, "Scale:",    (Vector2) { mpPropPos.x + mpPropMarginLeft, mpPropPos.y + mpPropMarginTop + 20 }, 20, 0.0f, BLACK );
-        DrawTextEx( rm->baseFont, sx,          (Vector2) { mpPropPos.x + mpPropMarginLeft, mpPropPos.y + mpPropMarginTop + 40 }, 20, 0.0f, MAROON );
-        DrawTextEx( rm->baseFont, sy,          (Vector2) { mpPropPos.x + mpPropMarginLeft, mpPropPos.y + mpPropMarginTop + 60 }, 20, 0.0f, DARKGREEN );
-        DrawTextEx( rm->baseFont, sz,          (Vector2) { mpPropPos.x + mpPropMarginLeft, mpPropPos.y + mpPropMarginTop + 80 }, 20, 0.0f, DARKBLUE );
+            mpPropMarginLeft += 100;
+            DrawTextEx( rm->baseFont, "Rotation:", (Vector2) { mpPropPos.x + mpPropMarginLeft, mpPropPos.y + mpPropMarginTop + 20 }, 20, 0.0f, BLACK );
+            DrawTextEx( rm->baseFont, ax,          (Vector2) { mpPropPos.x + mpPropMarginLeft, mpPropPos.y + mpPropMarginTop + 40 }, 20, 0.0f, MAROON );
+            DrawTextEx( rm->baseFont, ay,          (Vector2) { mpPropPos.x + mpPropMarginLeft, mpPropPos.y + mpPropMarginTop + 60 }, 20, 0.0f, DARKGREEN );
+            DrawTextEx( rm->baseFont, az,          (Vector2) { mpPropPos.x + mpPropMarginLeft, mpPropPos.y + mpPropMarginTop + 80 }, 20, 0.0f, DARKBLUE );
+
+
+            const char *sx = TextFormat( "x: %.2f", mp->sca.x );
+            const char *sy = TextFormat( "y: %.2f", mp->sca.y );
+            const char *sz = TextFormat( "z: %.2f", mp->sca.z );
+
+            mpPropMarginLeft += 100;
+            DrawTextEx( rm->baseFont, "Scale:",    (Vector2) { mpPropPos.x + mpPropMarginLeft, mpPropPos.y + mpPropMarginTop + 20 }, 20, 0.0f, BLACK );
+            DrawTextEx( rm->baseFont, sx,          (Vector2) { mpPropPos.x + mpPropMarginLeft, mpPropPos.y + mpPropMarginTop + 40 }, 20, 0.0f, MAROON );
+            DrawTextEx( rm->baseFont, sy,          (Vector2) { mpPropPos.x + mpPropMarginLeft, mpPropPos.y + mpPropMarginTop + 60 }, 20, 0.0f, DARKGREEN );
+            DrawTextEx( rm->baseFont, sz,          (Vector2) { mpPropPos.x + mpPropMarginLeft, mpPropPos.y + mpPropMarginTop + 80 }, 20, 0.0f, DARKBLUE );
+
+        #else
+
+            float *mpPropValues[9] = {
+                &mp->pos.x, &mp->pos.y, &mp->pos.z, 
+                &mp->rot.x, &mp->rot.y, &mp->rot.z, 
+                &mp->sca.x, &mp->sca.y, &mp->sca.z, 
+            };
+            const char *mpPropLabels[9] = { "x:", "y:", "z:", "x:", "y:", "z:", "x:", "y:", "z:" };
+            const char *mpPropColumHeaders[3] = { "Position:", "Rotation:", "Scale:" };
+            const int boxWidth = 70;
+            const int boxHeight = 18;
+
+            for ( int col = 0; col < 3; col++ ) {
+
+                int columnLeft = mpPropMarginLeft + col * 100;
+
+                DrawTextEx(
+                    rm->baseFont, mpPropColumHeaders[col],
+                    (Vector2) { mpPropPos.x  + columnLeft + 10, mpPropPos.y + mpPropMarginTop + 20 },
+                    20, 0.0f, BLACK
+                );
+
+                for ( int row = 0; row < 3; row++ ) {
+                    
+                    int field = col * 3 + row;
+
+                    Rectangle bounds = {
+                        mpPropPos.x + columnLeft + 10,
+                        mpPropPos.y + mpPropMarginTop + 40 + row * 22,
+                        boxWidth, boxHeight
+                    };
+
+                    bool editing = ( mpPropActiveField == field );
+
+                    if ( !editing ) {
+                        snprintf( mpPropTextBuf[field], sizeof( mpPropTextBuf[field] ), "%.2f", *mpPropValues[field] );
+                    }
+
+                    if ( GuiValueBoxFloat( bounds, mpPropLabels[field], mpPropTextBuf[field], mpPropValues[field], editing ) ) {
+                        mpPropActiveField = editing ? -1 : field;
+                    }
+
+                }
+
+            }
+
+        #endif
 
     }
 
@@ -1017,7 +1092,7 @@ static void saveMap( const char *filePath, GameWorld *gw ) {
 
 }
 
-static void loadMap( const char *filePath, GameWorld *gw ) {
+static void loadMap( const char *filePath, GameWorld *gw, bool centralizeAfterLoad ) {
 
     char *fileText = LoadFileText( filePath );
     if ( fileText == NULL ) {
@@ -1053,6 +1128,55 @@ static void loadMap( const char *filePath, GameWorld *gw ) {
 
     }
 
+    if ( centralizeAfterLoad && gw->mapPiecesCount > 0 ) {
+
+        Vector3 min = { 0 };
+        Vector3 max = { 0 };
+
+        for ( int i = 0; i < gw->mapPiecesCount; i++ ) {
+
+            MapPiece *mp = &gw->mapPieces[i];
+
+            if ( i == 0 ) {
+                min.x = max.x = mp->bb.min.x;
+                min.y = max.y = mp->bb.min.y;
+                min.z = max.z = mp->bb.min.z;
+            } else {
+                if ( min.x > mp->bb.min.x ) min.x = mp->bb.min.x;
+                if ( min.y > mp->bb.min.y ) min.y = mp->bb.min.y;
+                if ( min.z > mp->bb.min.z ) min.z = mp->bb.min.z;
+                if ( max.x < mp->bb.max.x ) max.x = mp->bb.max.x;
+                if ( max.y < mp->bb.max.y ) max.y = mp->bb.max.y;
+                if ( max.z < mp->bb.max.z ) max.z = mp->bb.max.z;
+            }
+
+        }
+
+        float xShift = -( min.x + max.x ) / 2.0f;
+        float yShift = -min.y;
+        float zShift = -( min.z + max.z ) / 2.0f;
+
+        for ( int i = 0; i < gw->mapPiecesCount; i++ ) {
+            gw->mapPieces[i].pos.x += xShift;
+            gw->mapPieces[i].pos.y += yShift;
+            gw->mapPieces[i].pos.z += zShift;
+        }
+
+    }
+
     UnloadFileText( fileText );
+
+}
+
+static Rectangle getMapPiecePropertiesPanelRec( void ) {
+
+    const int mpPropMarginTop = 10;
+
+    return (Rectangle) { 
+        10, 
+        GetScreenHeight() - 120 - mpPropMarginTop, 
+        300, 
+        120
+    };
 
 }
