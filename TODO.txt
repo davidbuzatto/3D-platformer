@@ -1,0 +1,8 @@
+- perigo/morte e respawn (queda do mapa, armadilhas: spikes, saw) com checkpoint
+- usar um modelo melhor para o jogador, com animacoes
+- diferenciar pecas do mapa que sao itens (moedas, gemas, chave, etc)
+- elementos interativos do mapa (mola, alavanca/porta, esteira, bloco movel)
+- criar inimigos
+- melhorar o modelo dos inimigos
+- audio basico (pulo, colisao/pouso, coleta de item)
+- abstrair a estrutura do jogo para comportar fases diferentes
