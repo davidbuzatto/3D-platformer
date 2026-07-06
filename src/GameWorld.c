@@ -179,6 +179,7 @@ void updateGameWorld( GameWorld *gw, float delta ) {
 
     if ( IsKeyPressed( KEY_F10 ) ) {
         playMode = !playMode;
+        deselectSelectedMapPiece();
     }
 
     if ( IsKeyPressed( KEY_F11 ) ) {
