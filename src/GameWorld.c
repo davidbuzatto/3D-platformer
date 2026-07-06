@@ -47,12 +47,12 @@ typedef enum {
 } MapStartMode;
 
 static void drawEditorHud( void );
+static void drawPlayHud( GameWorld *gw );
+static void drawPlayerDebugPanel( GameWorld *gw );
 
-static bool drawDebugInfo = true;
-static bool playMode = true;
-//static Vector3 playerStartPos = { 1.89f, 1.0f, 4.24f };
-static Vector3 playerStartPos = { -4, 10, -7 };
-//static Vector3 playerStartPos = { .69, 11, -4.76 };
+static bool drawDebugInfo = false;
+static bool playMode = false;
+static Vector3 playerStartPos = { 1.89f, 1.0f, 4.24f };
 
 // editor state
 static EditorMode editorMode = EDITOR_MODE_SELECT_MAP_PIECE;
@@ -281,7 +281,7 @@ void drawGameWorld( GameWorld *gw ) {
     GizmoOperationMode currentGizmoOperationMode = toGizmoOperationMode( getGizmoMode() );
 
     BeginMode3D( gw->camera );
-    //DrawModel( rm->seaModel, (Vector3) { 0.0f, 0.15f, 0.0f }, 1.0f, WHITE );
+    DrawModel( rm->seaModel, (Vector3) { 0.0f, -1.0f, 0.0f }, 1.0f, WHITE );
     for ( int i = 0; i < gw->mapPiecesCount; i++ ) {
         gw->mapPieces[i].draw( &gw->mapPieces[i], currentGizmoOperationMode );
     }
@@ -291,7 +291,11 @@ void drawGameWorld( GameWorld *gw ) {
     }
     EndMode3D();
 
-    drawEditorHud();
+    if ( playMode ) {
+        drawPlayHud( gw );
+    } else {
+        drawEditorHud();
+    }
 
     EndDrawing();
 
@@ -350,5 +354,85 @@ static void drawEditorHud( void ) {
     if ( editorMode == EDITOR_MODE_SELECT_MAP_PIECE_MODEL_TYPE ) {
         drawMapPieceModelPicker();
     }
+
+}
+
+static void drawPlayHud( GameWorld *gw ) {
+
+    const int marginTop = 10;
+    const int marginLeft = 10;
+    Vector2 pos = { 10, 10 };
+
+    DrawRectangleRounded(
+        (Rectangle) { pos.x, pos.y, GetScreenWidth() - marginLeft * 2, 40 },
+        0.2f,
+        10,
+        Fade( WHITE, 0.7f )
+    );
+
+    DrawRectangleRoundedLinesEx(
+        (Rectangle) { pos.x, pos.y, GetScreenWidth() - marginLeft * 2, 40 },
+        0.2f,
+        10,
+        2.0f,
+        BLACK
+    );
+
+    DrawTextEx(
+        rm->baseFont,
+        "Play Mode",
+        (Vector2) { pos.x + marginLeft, pos.y + marginTop },
+        20, 0.0f, BLACK
+    );
+
+    drawPlayerDebugPanel( gw );
+
+}
+
+static void drawPlayerDebugPanel( GameWorld *gw ) {
+
+    const int marginTop = 10;
+    int marginLeft = 10;
+
+    // same spot as the map piece properties panel -- only one of the two
+    // is ever drawn in a given frame (editor vs. play mode)
+    Rectangle panelRec = getMapPiecePropertiesPanelRec();
+    Vector2 panelPos = { panelRec.x, panelRec.y };
+
+    DrawRectangleRounded( panelRec, 0.2f, 10, Fade( WHITE, 0.7f ) );
+    DrawRectangleRoundedLinesEx( panelRec, 0.2f, 10, 2.0f, BLACK );
+
+    DrawTextEx(
+        rm->baseFont,
+        "Player",
+        (Vector2) { panelPos.x + marginLeft, panelPos.y + marginTop },
+        20, 0.0f, BLACK
+    );
+
+    const char *px = TextFormat( "x: %.2f", gw->player.pos.x );
+    const char *py = TextFormat( "y: %.2f", gw->player.pos.y );
+    const char *pz = TextFormat( "z: %.2f", gw->player.pos.z );
+
+    DrawTextEx( rm->baseFont, "Position:", (Vector2) { panelPos.x + marginLeft, panelPos.y + marginTop + 20 }, 20, 0.0f, BLACK );
+    DrawTextEx( rm->baseFont, px,          (Vector2) { panelPos.x + marginLeft, panelPos.y + marginTop + 40 }, 20, 0.0f, MAROON );
+    DrawTextEx( rm->baseFont, py,          (Vector2) { panelPos.x + marginLeft, panelPos.y + marginTop + 60 }, 20, 0.0f, DARKGREEN );
+    DrawTextEx( rm->baseFont, pz,          (Vector2) { panelPos.x + marginLeft, panelPos.y + marginTop + 80 }, 20, 0.0f, DARKBLUE );
+
+    // rotation: the player only ever turns around Y (facingYaw) -- x/z stay
+    // fixed at 0, shown anyway to match the piece panel's layout
+    marginLeft += 100;
+    const char *ay = TextFormat( "y: %.2fº", gw->player.facingYaw );
+
+    DrawTextEx( rm->baseFont, "Rotation:", (Vector2) { panelPos.x + marginLeft, panelPos.y + marginTop + 20 }, 20, 0.0f, BLACK );
+    DrawTextEx( rm->baseFont, "x: 0.00º",  (Vector2) { panelPos.x + marginLeft, panelPos.y + marginTop + 40 }, 20, 0.0f, MAROON );
+    DrawTextEx( rm->baseFont, ay,          (Vector2) { panelPos.x + marginLeft, panelPos.y + marginTop + 60 }, 20, 0.0f, DARKGREEN );
+    DrawTextEx( rm->baseFont, "z: 0.00º",  (Vector2) { panelPos.x + marginLeft, panelPos.y + marginTop + 80 }, 20, 0.0f, DARKBLUE );
+
+    // scale: fixed at 1 for now, the player doesn't support scaling
+    marginLeft += 100;
+    DrawTextEx( rm->baseFont, "Scale:",   (Vector2) { panelPos.x + marginLeft, panelPos.y + marginTop + 20 }, 20, 0.0f, BLACK );
+    DrawTextEx( rm->baseFont, "x: 1.00",  (Vector2) { panelPos.x + marginLeft, panelPos.y + marginTop + 40 }, 20, 0.0f, MAROON );
+    DrawTextEx( rm->baseFont, "y: 1.00",  (Vector2) { panelPos.x + marginLeft, panelPos.y + marginTop + 60 }, 20, 0.0f, DARKGREEN );
+    DrawTextEx( rm->baseFont, "z: 1.00",  (Vector2) { panelPos.x + marginLeft, panelPos.y + marginTop + 80 }, 20, 0.0f, DARKBLUE );
 
 }

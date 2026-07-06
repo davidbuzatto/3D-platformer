@@ -28,7 +28,7 @@ static void draw( Player *p );
 static float getGroundY( Vector3 pos, MapPiece *mapPieces, int mapPiecesCount );
 
 static const float moveSpeed = 6.0f; // units per second
-static const float jumpSpeed = 10.0f; // initial upward velocity
+static const float jumpSpeed = 8.0f; // initial upward velocity
 
 // naive gravity: no ground collision yet, so the player just keeps
 // falling forever

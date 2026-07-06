@@ -39,7 +39,8 @@ static bool selectGizmoAxisFromSelectedMapPiece( MapPiece *mp, Camera *camera );
 static void performGizmoOperation( MapPiece *mp, Camera *camera );
 static float closestPointOnAxisToRay( Vector3 lineOrigin, Vector3 axisDir, Ray ray );
 
-static Rectangle getMapPiecePropertiesPanelRec( void );
+// declared in MapPieceEditor.h -- shared with GameWorld.c so the play-mode
+// debug panel can line up with the exact same spot
 
 // selected map piece to perform operations -- the "primary" of the
 // selection: the one the gizmo is anchored to, and the only one rotate/
@@ -672,7 +673,7 @@ static float closestPointOnAxisToRay( Vector3 lineOrigin, Vector3 axisDir, Ray r
 
 }
 
-static Rectangle getMapPiecePropertiesPanelRec( void ) {
+Rectangle getMapPiecePropertiesPanelRec( void ) {
 
     const int mpPropMarginTop = 10;
 

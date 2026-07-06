@@ -49,6 +49,13 @@ void removeMapPiece( MapPiece *mp, GameWorld *gw );
 void drawMapPiecePropertiesPanel( void );
 
 /**
+ * @brief Rectangle of the properties panel (bottom-left corner), so other
+ * panels (e.g. the player debug panel in play mode) can share the exact
+ * same spot.
+ */
+Rectangle getMapPiecePropertiesPanelRec( void );
+
+/**
  * @brief Clones the selected map piece (same model, rotation and scale) and
  * offsets the copy along the given axis by its own bounding-box size, so it
  * sits flush against the original with no gap or overlap. The copy becomes
