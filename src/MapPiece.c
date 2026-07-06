@@ -77,11 +77,11 @@ void initMapPiece( MapPiece *mp, Vector3 pos, MapPieceModelType modelType ) {
 
 Matrix getMapPieceWorldTransform( MapPiece *mp ) {
     return MatrixMultiply(
-        MatrixTranslate( mp->pos.x, mp->pos.y, mp->pos.z ),
         MatrixMultiply(
-            mp->model.transform,
-            MatrixScale( mp->sca.x, mp->sca.y, mp->sca.z )
-        )
+            MatrixScale( mp->sca.x, mp->sca.y, mp->sca.z ),
+            mp->model.transform
+        ),
+        MatrixTranslate( mp->pos.x, mp->pos.y, mp->pos.z )
     );
 }
 

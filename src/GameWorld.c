@@ -50,7 +50,8 @@ static void drawEditorHud( void );
 
 static bool drawDebugInfo = true;
 static bool playMode = true;
-static Vector3 playerStartPos = { 1.89f, 1.0f, 4.24f };
+//static Vector3 playerStartPos = { 1.89f, 1.0f, 4.24f };
+static Vector3 playerStartPos = { -4, 10, -7 };
 
 // editor state
 static EditorMode editorMode = EDITOR_MODE_SELECT_MAP_PIECE;
