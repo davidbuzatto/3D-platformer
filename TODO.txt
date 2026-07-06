@@ -1,0 +1,2 @@
+Hud for gameplay. For now, only hide the editor mode or show "Playing"
+Add debug information on player showing its properties (transforms)

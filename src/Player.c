@@ -17,8 +17,9 @@
 #include "Player.h"
 #include "ResourceManager.h"
 
-#define GAMEPAD_ID       0
-#define GAMEPAD_DEADZONE 0.2f
+#define GAMEPAD_ID          0
+#define GAMEPAD_DEADZONE    0.2f
+#define GROUND_PROBE_RADIUS 0.3f
 
 static void input( Player* p, Camera3D *camera );
 static void update( Player *p, MapPiece *mapPieces, int mapPiecesCount, float delta );
@@ -114,7 +115,7 @@ static void update( Player *p, MapPiece *mapPieces, int mapPiecesCount, float de
     // on, instead of starting already inside it (which is what was
     // breaking the landing check)
     Vector3 probeOrigin = p->pos;
-    probeOrigin.y = oldY + 0.05f;
+    probeOrigin.y = oldY + 0.25f;
 
     float groundY = getGroundY( probeOrigin, mapPieces, mapPiecesCount );
     p->grounded = ( !isinf( groundY ) && p->pos.y <= groundY );
@@ -140,23 +141,39 @@ static void draw( Player *p ) {
 
 static float getGroundY( Vector3 pos, MapPiece *mapPieces, int mapPiecesCount ) {
 
-    Ray ray = {
-        .position = pos,
-        .direction = { 0.0f, -1.0f, 0.0 }
+    // sample a small cluster under the player instead of a single ray --
+    // some meshes (like slatted wood bridges) have real gaps between
+    // planks, and a lone center ray can slip through one even while the
+    // character is solidly standing on the piece as a whole
+    Vector3 offsets[5] = {
+        {  0.0f,                 0.0f, 0.0f },
+        {  GROUND_PROBE_RADIUS,  0.0f, 0.0f },
+        { -GROUND_PROBE_RADIUS,  0.0f, 0.0f },
+        {  0.0f,                 0.0f,  GROUND_PROBE_RADIUS },
+        {  0.0f,                 0.0f, -GROUND_PROBE_RADIUS },
     };
 
     float highestY = -INFINITY;
 
-    for ( int i = 0; i < mapPiecesCount; i++ ) {
+    for ( int s = 0; s < 5; s++ ) {
 
-        MapPiece *mp = &mapPieces[i];
-        Matrix transform = getMapPieceWorldTransform( mp );
+        Ray ray = {
+            .position = Vector3Add( pos, offsets[s] ),
+            .direction = { 0.0f, -1.0f, 0.0f }
+        };
 
-        for ( int m = 0; m < mp->model.meshCount; m++ ) {
-            RayCollision hit = GetRayCollisionMesh( ray, mp->model.meshes[m], transform );
-            if ( hit.hit && hit.point.y > highestY ) {
-                highestY = hit.point.y;
+        for ( int i = 0; i < mapPiecesCount; i++ ) {
+
+            MapPiece *mp = &mapPieces[i];
+            Matrix transform = getMapPieceWorldTransform( mp );
+
+            for ( int m = 0; m < mp->model.meshCount; m++ ) {
+                RayCollision hit = GetRayCollisionMesh( ray, mp->model.meshes[m], transform );
+                if ( hit.hit && hit.point.y > highestY ) {
+                    highestY = hit.point.y;
+                }
             }
+
         }
 
     }
