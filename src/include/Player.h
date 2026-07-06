@@ -9,6 +9,9 @@ struct Player {
     Vector3 pos;
     Vector3 vel;
 
+    float facingYaw;
+    bool grounded;
+
     Model model;
     BoundingBox baseBB;
 

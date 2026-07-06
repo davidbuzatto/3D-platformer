@@ -27,6 +27,7 @@ static void draw( Player *p );
 static float getGroundY( Vector3 pos, MapPiece *mapPieces, int mapPiecesCount );
 
 static const float moveSpeed = 6.0f; // units per second
+static const float jumpSpeed = 10.0f; // initial upward velocity
 
 // naive gravity: no ground collision yet, so the player just keeps
 // falling forever
@@ -36,6 +37,8 @@ void initPlayer( Player *p, Vector3 pos ) {
 
     p->pos = pos;
     p->vel = (Vector3) { 0 };
+    p->facingYaw = 0.0f;
+    p->grounded = false;
     
     p->model = rm->mapPieceModelAtlas[MODEL_TYPE_CHARACTER_OOBI];
     p->baseBB = GetModelBoundingBox( p->model );
@@ -85,12 +88,20 @@ static void input( Player* p, Camera3D *camera ) {
         dir = Vector3Normalize( dir );
     }
 
+    // face the direction of movement
+    p->facingYaw = RAD2DEG * atan2f( -dir.x, -dir.z ) + 180.0f;
+
     p->vel.x = dir.x * moveSpeed;
     p->vel.z = dir.z * moveSpeed;
 
 }
 
 static void update( Player *p, MapPiece *mapPieces, int mapPiecesCount, float delta ) {
+
+    if ( p->grounded && IsGamepadButtonPressed( GAMEPAD_ID, GAMEPAD_BUTTON_RIGHT_FACE_DOWN ) ) {
+        p->vel.y = jumpSpeed;
+        p->grounded = false;
+    }
 
     float oldY = p->pos.y;
 
@@ -106,9 +117,10 @@ static void update( Player *p, MapPiece *mapPieces, int mapPiecesCount, float de
     probeOrigin.y = oldY + 0.05f;
 
     float groundY = getGroundY( probeOrigin, mapPieces, mapPiecesCount );
+    p->grounded = ( !isinf( groundY ) && p->pos.y <= groundY );
 
     // snap to ground
-    if ( !isinf( groundY ) && p->pos.y <= groundY ) {
+    if ( p->grounded ) {
         p->pos.y = groundY;
         p->vel.y = 0.0f;
     }
@@ -116,7 +128,14 @@ static void update( Player *p, MapPiece *mapPieces, int mapPiecesCount, float de
 }
 
 static void draw( Player *p ) {
-    DrawModel( p->model, p->pos, 1.0f, WHITE );
+    DrawModelEx( 
+        p->model, 
+        p->pos, 
+        (Vector3) { 0.0f, 1.0f, 0.0f }, 
+        p->facingYaw, 
+        (Vector3) { 1.0f, 1.0f, 1.0f },
+        WHITE
+    );
 }
 
 static float getGroundY( Vector3 pos, MapPiece *mapPieces, int mapPiecesCount ) {

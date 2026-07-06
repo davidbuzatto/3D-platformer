@@ -21,14 +21,15 @@
 #undef RAYGUI_IMPLEMENTATION     // raygui.h
 #endif
 
+#include "EditorCamera.h"
+#include "GameplayCamera.h"
 #include "GameWorld.h"
 #include "Gizmo.h"
 #include "MapPiece.h"
-#include "ResourceManager.h"
-#include "EditorCamera.h"
-#include "MapSerializer.h"
-#include "MapPieceModelPicker.h"
 #include "MapPieceEditor.h"
+#include "MapPieceModelPicker.h"
+#include "MapSerializer.h"
+#include "ResourceManager.h"
 
 #define MAP_FILE_PATH "resources/maps/collisionTestMap.txt"
 #define CENTER_LOADED_MAP false
@@ -48,7 +49,8 @@ typedef enum {
 static void drawEditorHud( void );
 
 static bool drawDebugInfo = true;
-static bool playMode = false;
+static bool playMode = true;
+static Vector3 playerStartPos = { 1.89f, 1.0f, 4.24f };
 
 // editor state
 static EditorMode editorMode = EDITOR_MODE_SELECT_MAP_PIECE;
@@ -138,7 +140,7 @@ GameWorld *createGameWorld( void ) {
         loadMap( MAP_FILE_PATH, gw, CENTER_LOADED_MAP );
     }
 
-    initPlayer( &gw->player, (Vector3) { 1.89f, 1.0f, 4.24f } );
+    initPlayer( &gw->player, playerStartPos );
 
     gw->camera = (Camera3D) {
         .fovy = 60.0f,
@@ -172,17 +174,23 @@ void destroyGameWorld( GameWorld *gw ) {
 void updateGameWorld( GameWorld *gw, float delta ) {
 
     Camera *camera = &gw->camera;
-    updateEditorCamera( camera, delta );
 
     if ( IsKeyPressed( KEY_F10 ) ) {
         playMode = !playMode;
     }
 
+    if ( IsKeyPressed( KEY_F11 ) ) {
+        gw->player.pos = playerStartPos;
+    }
+
     if ( playMode ) {
         gw->player.input( &gw->player, camera );
         gw->player.update( &gw->player, gw->mapPieces, gw->mapPiecesCount, delta );
+        updateGameplayCamera( camera, gw->player.pos, delta );
         return;
     }
+
+    updateEditorCamera( camera, delta );
 
     for ( int i = 0; i < gw->mapPiecesCount; i++ ) {
         gw->mapPieces[i].update( &gw->mapPieces[i] );
