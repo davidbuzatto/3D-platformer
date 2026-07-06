@@ -21,14 +21,26 @@
 #define GAMEPAD_DEADZONE    0.2f
 #define GROUND_PROBE_RADIUS 0.3f
 
+// horizontal collision box, centered on pos: a thin slice from
+// PLAYER_STEP_HEIGHT to PLAYER_HEIGHT above the feet, so low curbs/steps
+// (like the low grass blocks) don't get treated as walls
+#define PLAYER_RADIUS      0.3f
+#define PLAYER_STEP_HEIGHT 0.4f
+#define PLAYER_HEIGHT      1.8f
+
+#define JUMP_BUFFER_TIME 0.15f // remember a jump press for this long
+#define COYOTE_TIME      0.15f // still allow jumping this long after leaving the ground
+
 static void input( Player* p, Camera3D *camera );
 static void update( Player *p, MapPiece *mapPieces, int mapPiecesCount, float delta );
 static void draw( Player *p );
 
 static float getGroundY( Vector3 pos, MapPiece *mapPieces, int mapPiecesCount );
+static bool collidesWithMapPieces( Vector3 pos, MapPiece *mapPieces, int mapPiecesCount );
+static bool isSlopedMapPieceModelType( MapPieceModelType type );
 
 static const float moveSpeed = 6.0f; // units per second
-static const float jumpSpeed = 8.0f; // initial upward velocity
+static const float jumpSpeed = 8.5f; // initial upward velocity
 
 // naive gravity: no ground collision yet, so the player just keeps
 // falling forever
@@ -40,7 +52,9 @@ void initPlayer( Player *p, Vector3 pos ) {
     p->vel = (Vector3) { 0 };
     p->facingYaw = 0.0f;
     p->grounded = false;
-    
+    p->jumpBufferTimer = 0.0f;
+    p->coyoteTimer = 0.0f;
+
     p->model = rm->mapPieceModelAtlas[MODEL_TYPE_CHARACTER_OOBI];
     p->baseBB = GetModelBoundingBox( p->model );
 
@@ -51,6 +65,13 @@ void initPlayer( Player *p, Vector3 pos ) {
 }
 
 static void input( Player* p, Camera3D *camera ) {
+
+    // just remembers that the player asked to jump -- update() decides
+    // whether that request is actually honored this frame (see the jump
+    // buffer / coyote time logic there)
+    if ( IsGamepadButtonPressed( GAMEPAD_ID, GAMEPAD_BUTTON_RIGHT_FACE_DOWN ) ) {
+        p->jumpBufferTimer = JUMP_BUFFER_TIME;
+    }
 
     float moveX = 0.0f;
     float moveZ = 0.0f;
@@ -99,16 +120,47 @@ static void input( Player* p, Camera3D *camera ) {
 
 static void update( Player *p, MapPiece *mapPieces, int mapPiecesCount, float delta ) {
 
-    if ( p->grounded && IsGamepadButtonPressed( GAMEPAD_ID, GAMEPAD_BUTTON_RIGHT_FACE_DOWN ) ) {
+    // jump buffer: count down a remembered press instead of requiring it
+    // to land on the exact frame grounded happens to be true
+    if ( p->jumpBufferTimer > 0.0f ) {
+        p->jumpBufferTimer -= delta;
+    }
+
+    // coyote time: keep jumping allowed for a short grace window after
+    // leaving solid ground -- without it, walking on a ramp/slope can
+    // flicker grounded false for a frame here and there (the ground probe
+    // snaps each frame, and gravity nudges the player off the surface in
+    // between), silently eating jump presses
+    if ( p->grounded ) {
+        p->coyoteTimer = COYOTE_TIME;
+    } else if ( p->coyoteTimer > 0.0f ) {
+        p->coyoteTimer -= delta;
+    }
+
+    if ( p->jumpBufferTimer > 0.0f && p->coyoteTimer > 0.0f ) {
         p->vel.y = jumpSpeed;
         p->grounded = false;
+        p->jumpBufferTimer = 0.0f;
+        p->coyoteTimer = 0.0f;
+    }
+
+    // horizontal movement, resolved one axis at a time -- so sliding along
+    // a wall works instead of getting stuck when approaching it at an angle
+    float newX = p->pos.x + p->vel.x * delta;
+    if ( !collidesWithMapPieces( (Vector3) { newX, p->pos.y, p->pos.z }, mapPieces, mapPiecesCount ) ) {
+        p->pos.x = newX;
+    }
+
+    float newZ = p->pos.z + p->vel.z * delta;
+    if ( !collidesWithMapPieces( (Vector3) { p->pos.x, p->pos.y, newZ }, mapPieces, mapPiecesCount ) ) {
+        p->pos.z = newZ;
     }
 
     float oldY = p->pos.y;
 
     // Euler integration: v += a*dt, then pos += v*dt
     p->vel.y += gravity * delta;
-    p->pos = Vector3Add( p->pos, Vector3Scale( p->vel, delta ) );
+    p->pos.y += p->vel.y * delta;
 
     // probe from slightly above where the player was before this frame's
     // movement -- guarantees the ray starts above any surface it's resting
@@ -180,4 +232,67 @@ static float getGroundY( Vector3 pos, MapPiece *mapPieces, int mapPiecesCount ) 
 
     return highestY;
 
+}
+
+static bool collidesWithMapPieces( Vector3 pos, MapPiece *mapPieces, int mapPiecesCount ) {
+
+    // a thin vertical slice of the player, from PLAYER_STEP_HEIGHT to
+    // PLAYER_HEIGHT above the feet -- low curbs/steps stay below this
+    // slice and don't block horizontal movement, only genuine walls do.
+    // uses mp->bb (world AABB), so rotated pieces are only approximated --
+    // fine for now since walls here are mostly axis-aligned
+    BoundingBox playerBox = {
+        { pos.x - PLAYER_RADIUS, pos.y + PLAYER_STEP_HEIGHT, pos.z - PLAYER_RADIUS },
+        { pos.x + PLAYER_RADIUS, pos.y + PLAYER_HEIGHT,      pos.z + PLAYER_RADIUS }
+    };
+
+    for ( int i = 0; i < mapPiecesCount; i++ ) {
+
+        // a sloped piece's AABB spans its full rise (an AABB can't follow
+        // the diagonal), so it would wrongly block the player from even
+        // stepping onto the low end -- skip these here and let the ground
+        // probe (which tests the real mesh) handle them entirely
+        if ( isSlopedMapPieceModelType( mapPieces[i].modelType ) ) {
+            continue;
+        }
+
+        if ( CheckCollisionBoxes( playerBox, mapPieces[i].bb ) ) {
+            return true;
+        }
+
+    }
+
+    return false;
+
+}
+
+static bool isSlopedMapPieceModelType( MapPieceModelType type ) {
+    switch ( type ) {
+        case MODEL_TYPE_BLOCK_GRASS_CURVE:
+        case MODEL_TYPE_BLOCK_GRASS_CURVE_HALF:
+        case MODEL_TYPE_BLOCK_GRASS_CURVE_LOW:
+        case MODEL_TYPE_BLOCK_GRASS_LARGE_SLOPE:
+        case MODEL_TYPE_BLOCK_GRASS_LARGE_SLOPE_NARROW:
+        case MODEL_TYPE_BLOCK_GRASS_LARGE_SLOPE_STEEP:
+        case MODEL_TYPE_BLOCK_GRASS_LARGE_SLOPE_STEEP_NARROW:
+        case MODEL_TYPE_BLOCK_GRASS_OVERHANG_LARGE_SLOPE:
+        case MODEL_TYPE_BLOCK_GRASS_OVERHANG_LARGE_SLOPE_NARROW:
+        case MODEL_TYPE_BLOCK_GRASS_OVERHANG_LARGE_SLOPE_STEEP:
+        case MODEL_TYPE_BLOCK_GRASS_OVERHANG_LARGE_SLOPE_STEEP_NARROW:
+        case MODEL_TYPE_BLOCK_SNOW_CURVE:
+        case MODEL_TYPE_BLOCK_SNOW_CURVE_HALF:
+        case MODEL_TYPE_BLOCK_SNOW_CURVE_LOW:
+        case MODEL_TYPE_BLOCK_SNOW_LARGE_SLOPE:
+        case MODEL_TYPE_BLOCK_SNOW_LARGE_SLOPE_NARROW:
+        case MODEL_TYPE_BLOCK_SNOW_LARGE_SLOPE_STEEP:
+        case MODEL_TYPE_BLOCK_SNOW_LARGE_SLOPE_STEEP_NARROW:
+        case MODEL_TYPE_BLOCK_SNOW_OVERHANG_LARGE_SLOPE:
+        case MODEL_TYPE_BLOCK_SNOW_OVERHANG_LARGE_SLOPE_NARROW:
+        case MODEL_TYPE_BLOCK_SNOW_OVERHANG_LARGE_SLOPE_STEEP:
+        case MODEL_TYPE_BLOCK_SNOW_OVERHANG_LARGE_SLOPE_STEEP_NARROW:
+        case MODEL_TYPE_PLATFORM_RAMP:
+            return true;
+        default:
+            return false;
+    }
 }

@@ -11,6 +11,10 @@ struct Player {
 
     float facingYaw;
     bool grounded;
+    float jumpBufferTimer;  // remembers a jump press for a short window,
+                             // in case grounded isn't true yet this frame
+    float coyoteTimer;      // keeps jump allowed for a short window after
+                             // leaving the ground (e.g. walking off a ramp)
 
     Model model;
     BoundingBox baseBB;
