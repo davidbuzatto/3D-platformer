@@ -16,9 +16,9 @@
 #include "Macros.h"
 
 #ifdef USE_GUI
-#define RAYGUI_IMPLEMENTATION    // to use raygui, comment the USE_GUI define in Macros.h
-#include "raylib/raygui.h"       // other compilation units must only include
-#undef RAYGUI_IMPLEMENTATION     // raygui.h
+#define RAYGUI_IMPLEMENTATION
+#include "raylib/raygui.h"
+#undef RAYGUI_IMPLEMENTATION
 #endif
 
 #include "EditorCamera.h"
