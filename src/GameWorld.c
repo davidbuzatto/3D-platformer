@@ -31,7 +31,7 @@
 #include "MapSerializer.h"
 #include "ResourceManager.h"
 
-#define MAP_FILE_PATH "resources/maps/collisionTestMap.txt"
+#define MAP_FILE_PATH "resources/maps/stage01.txt"
 #define CENTER_LOADED_MAP false
 
 typedef enum {
@@ -52,7 +52,7 @@ static void drawPlayerDebugPanel( GameWorld *gw );
 
 static bool drawDebugInfo = false;
 static bool playMode = false;
-static Vector3 playerStartPos = { 1.89f, 1.0f, 4.24f };
+static Vector3 playerStartPos = { 1.0f, 3.0f, 4.0f };
 
 // editor state
 static EditorMode editorMode = EDITOR_MODE_SELECT_MAP_PIECE;
